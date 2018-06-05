@@ -1,0 +1,4455 @@
+ext4 日志式文件系统
+主分区最多4个，因为每个主分区要占用分区表16B，分区表共64B
+扩展分区，扩展分区只能有一个，并且不能直接被使用
+逻辑分区，逻辑分区是在扩展分区的基础上再划分的，是最终可以被使用的分区。
+
+实验报告：理解MBR
+实验目的：理解MBR分区和GPT分区
+实验内容：fdisk的使用
+
+84434476  
+
+2017/2/24  知识点汇总
+sda3
+hdb5
+sdc1
+legacy
+basic input output system  bios  cmos
+secure boot 
+efi-->uefi  guid 
+Unified Extensible Firmware Interface
+
+x11 窗口图形化协议  xfce（轻量级）kde（定制性最高）  gnome2（使用人数最多的，稳定性最好） unity（ubuntu自带的）  
+
+默认快捷键  ctrl alt t  打开终端
+ctrl shift  t  一个窗口多个终端
+ctrl shift f1-f7  
+ctrl c  终止当前命令
+ctrl l 清屏
+shift  pgup|pgdn    在终端下翻屏
+终端终结者  terminator  
+
+挂载点  /
+
+记住这个概念：在linux中，一切皆文件
+
+bin：  构建系统所需要的最少的指令（常用指令）
+
+boot：  linux（内核）和虚拟文件系统以及操作系统启动所需要的文件
+
+dev：各种设备文件
+
+etc：系统软件和其他软件的配置文件所在路径
+
+home：系统中普通用户的家目录
+
+root：root用户的家目录
+
+lib：库文件存放的路径
+lib64：64位库文件存放的路径
+
+media： 挂载目录
+msic：挂载目录
+mnt：挂载目录
+
+net：和网络有关的文件
+
+opt/usr  可以选择的应用安装目录或者第三方软件安装的路径
+
+proc：进程映像的映射（不占用硬盘资源）
+
+sbin：和系统操作相关的指令
+
+selinux：基于安全的一套策略
+
+tmp：类似于windows的temp（临时文件），其实就是内存中的一些文件的映射
+
+var：所有的应用的数据存放此处，比如日志等。通常大型的服务都会专门为这个目录挂载专用的存储设备
+
+[root@localhost ~]# 
+[用户名@主机名 当前所在的目录]#
+注：如果提示符是#结尾，表示这个用户是root，如果是$,说明是普通用户
+
+指令 -选项   参数
+ls  -help   表示分别由选项h、e、l、p结合
+ls  --help 两个-表示后面的选项就是一个单词，这个单词就是选项
+ls  -a 表示查看所有文件，在linux系统中，隐藏文件的文件名以.开头
+
+2017/02/26
+pgup|pgdn  查看文档一屏一屏
+enter   查看文档一行一行
+ctrl d  退出终端
+alias ls=‘xxx’   自定义指令
+man 1 ls   查看ls的帮助文档
+whatis ls   查看ls的描述
+which  ls   查看ls的来历
+rm  -f 等同于  rm --force
+在手册中查看内容时可以通过/关键词 来检索重要内容，按n是将检索到的关键词从上往下查看，按shift+n是从下往上，按q退出manual page
+
+Centos6 的启动流程：
+1、POST poweron secure test
+cmos软件 bios固件
+2、BOOT 
+3、识别MBR 512B  
+446（引导加载器）：GRUB LILO
+64  分区表（每个分区占用16B）
+2 magic number魔数
+4、读取stage1 
+stage1_5 识别各种文件系统
+stage2  出现的就是grub界面
+5、读取grub.conf 这个文件决定了grub界面的所有内容
+6、根据grub.conf的配置读取内核和虚拟文件系统
+7、启动init 父进程(PID 1)   /sbin/init   
+8、读取配置文件/etc/inittab(选择进入系统的类型 runlevel)
+#   0 - halt (Do NOT set initdefault to this)
+#   1 - Single user mode  单用户模式
+#   2 - Multiuser, without NFS (The same as 3, if you do not have networking)  多用户模式
+#   3 - Full multiuser mode 没有图形化的，只能用终端
+#   4 - unused
+#   5 - X11  图形化
+#   6 - reboot (Do NOT set initdefault to this)
+9、根据inittab中定义的启动级别，去相应的目录启动需要的脚本。比如是0级别，就去/etc/rc0.d目录下启动所有脚本
+同时需要执行fstab和rc.local
+注：fstab是系统自动挂载需要的配置
+
+sysV init 启动过程中的故障修复
+1、root密码的破解
+按e修改内容init 1 或 single 或 s
+按b引导内核进入单用户模式
+passwd   
+
+2、内核升级失败的修复
+/boot/vmlinuz***  内核
+/boot/initrd***   虚拟文件系统
+chroot  /mnt/sysimage  将光盘中的这个路径切换为/
+mount /dev/cdrom /mnt  挂载光盘到当前的mnt目录中，这个mnt是硬盘中的mnt目录
+rpm -ivh  参数i表示安装 --force
+rpm -ivh --force  kernel-2.****.rpm
+
+3、mbr分区中的grub修复（先linux，后window）
+进入救援模式，chroot /mnt/sysimage
+grub-install /dev/sda 
+
+
+4、boot的修复，救援模式
+
+5、grub的加密
+grub-md5-crypt
+生成的md5码添加到grub.cfg的title下面
+password --md5  “*****”
+
+2017/3/3  rhel7的启动
+systemd  取代了 sysV init
+ubuntu  upstart  epach muda 
+init  rc5.d
+苹果mac os launchd
+gnu lgpl 
+cgroup  为每个进程分配一个cgroup
+systemd 使用target来控制系统服务的启动
+rhel6中使用runlevel，7中用target替代
+第一个启动的通常都是default.target
+对比两个系统的启动级别
+0              poweroff.target 
+1              resuce.target 
+2              multi-user.target 
+3
+4
+5              graphical.target    
+6
+
+ systemctl set-default multi-user.target    设置默认启动服务，下次启动生效
+ 
+ systemd-analyze time  查看启动时间 
+ systemctl isolate graphical.target  切换进入其他级别  
+ systemctl list-units  查看系统中存在的服务
+ systemctl list-units --type=service 查看后缀service的服务
+ /usr/lib/systemd/system target路径
+ /etc/systemd/system/default.target  主配置文件
+ 132  systemctl is-active sshd.service 
+ 查看服务是否启动
+  133  systemctl stop sshd.service 
+  关闭服务
+  136  ps -aux |grep sshd   查看sshd进程
+  137  systemctl start sshd.service
+  启动进程
+service sshd stop
+
+修改grub.cfg来决定系统的启动顺序等需要修改/etc/default/grub,然后使用命令grub2-mkconfig -o  /boot/grub2/来更新grub.cfg的配置，如果是debain类的系统中使用update-grub2来更新
+[root@localhost grub.d]# grub2-set-default 1
+
+rescue 模式 单用户模式   需要密码
+emergency 模式
+
+破解root密码第一种  init=/bin/sh  
+crtl+x 引导进入
+进入后sh2.4#  此时输入passwd是无法修改成功的
+sh2.4#  mount -o  remount，rw /
+mount是挂载，参数-o是额外的选项，选项就是remount（重新挂载），rw表示权限
+sh2.4#  passwd 修改密码，成功
+sh2.4#  touch /.autorelabel 
+创建这个文件的目的是为了让selinux自动打标签
+sh2.4#  exec /sbin/init
+
+2017/3/5  
+1、第二种hel7下破解root密码的方式（推荐
+内核后面跟上参数  rd.break
+mount -o remount,rw  /sysroot/  重新挂载并要求sysroot可以读写
+chroot /sysroot/  切换根
+passwd  修改密码
+load_policy -i  加载selinux
+chcon -t shadow_t /etc/shadow   修改shadow的上下文
+touch /.autorelabel  重建selinux标签
+exit  reboot
+
+2、rhel7中grub的修复
+通过光盘引导
+chroot /mnt/sysimage  切换根
+grub2-install /dev/sda   安装grub
+
+3、rhel7中内核等引导文件的修复
+通过光盘引导
+chroot /mnt/sysimage  切换根
+cd /  进入/
+mount /dev/cdrom  /media  挂载光盘到media目录中
+rpm -ivh --force /media/Package/kernel-3.10.rpm
+安装内核，安装完成后，boot目录中会生成内核和虚拟文件系统
+grub2-install /dev/sda  安装grub2，安装成功后会在/boot目录下生成grub所需要的文件，但是缺少grub.cfg配置文件
+grub2-mkconfig -o /boot/grub2/grub.cfg
+生成grub.cfg文件
+
+4、添加grub加密
+在/etc/grub.d/00_header 的末尾添加如下内容：
+cat  << EOF
+set superusers="tom"
+password tom  redhat
+EOF
+最后执行更新grub.cfg操作
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+5、网络基本配置
+[root@centos6 桌面]# cd /etc/sysconfig/network-scripts/ifcfg*
+BOOTPROTO=static
+IPADDR=192.168.24.44
+NETMASK=255.255.255.0
+GATEWAY=192.168.24.254
+DNS1=192.168.24.254
+[root@centos6 network-scripts]# service network restart
+重启网络服务
+[root@centos6 network-scripts]# service NetworkManager stop
+[root@centos6 network-scripts]# chkconfig NetworkManager off
+关闭NetworkManager服务，防止冲突
+注：配置文件的每一个修改，要想生效都必须重启服务
+
+6、硬件检测
+[root@centos6 桌面]# cat /proc/cpuinfo 
+查看cpu信息
+[root@centos6 ~]# lspci
+查看所有的板卡信息
+[root@centos6 ~]# lspci |grep net
+通过管道过滤net方面的内容
+[root@centos6 ~]# cat /proc/meminfo 
+查看内存的信息
+[root@centos6 ~]# lsusb
+查看usb的设备
+[root@centos6 ~]# cat /proc/bus/usb/devices 
+查看usb的设备信息
+[root@centos6 ~]# cat /proc/bus/input/devices 
+查看输入设备的信息
+[root@centos6 ~]# fdisk -l
+查看硬盘信息
+[root@centos6 桌面]# df -hT
+查看硬盘的使用情况
+[root@centos6 桌面]# uname -a
+查看系统的信息
+[root@centos6 桌面]# cat /proc/version 
+查看系统版本信息
+[root@centos6 桌面]# lsb_release  -a
+查看系统的发布信息
+注：lsb是linux的一个核心标准
+[root@centos6 ~]# lsblk
+列出系统中的所有块设备信息
+[root@centos6 ~]# cat /proc/interrupts 
+查看设备中所有的IRQ信号，irq值越小优先级越高
+[root@centos6 ~]# dmidecode -t bios
+查看bios信息
+[root@centos6 ~]# pstree -p |grep udev
+查看udev这个daemons（守护进程），自动生成设备的名称和定义设备如何使用，它在/etc/rc.d/rc.sysinit脚本运行后开始工作。
+etc/udev/rules.d这个目录下存放了系统的规则文件
+[root@centos6 rules.d]# pstree -p |grep hal
+这个daemon是实现程序和设备之间交流的，告诉程序如何使用设备
+
+7、软件安装
+debain： /etc/apt/source.list
+sudo apt-get update  更新源
+sudo apt-get upgrade  更新系统
+sudo apt-get autoremove  自动删除一些不是用的软件包
+
+a、源码编译安装
+优点：定制性高
+缺点：耗时长
+./configure  定制环境
+make   编译
+make install   安装
+
+b、rpm包安装(debain  dpkg)
+优点：简单方便
+缺点：功能无法定制，存在包依赖
+rpm -qa   查看系统中所有的rpm软件包
+rpm -qa  |grep kernel   查看系统中包含kernel字符的软件包
+rpm -ql  kernel*  查看这个包安装的具体路径
+rpm  -qlp  kernel*.rpm  
+根据rpm包查看安装后的路径，通常用于安装前
+rpm -qc  kernel  查看这个软件包的配置文件所在的路径
+rpm -qf  /usr/bin/rz  根据指令逆向找出软件包
+rpm -Uvh  升级内核之类不要使用这个更新方式。U表示更新rpm包，如果包没有安装过，那就安装，如果装过，先卸载，重新安装当前版本。
+rpm  -e tree  卸载软件包
+
+源
+/etc/yum.repos.d/ rhel类系统在这个目录下存放了系统自带的源文件
+/etc/apt/source.list.d/  (debain类系统的源文件)
+
+apt-get update  更新源
+apt-get autoremove  
+
+\ 转义
+
+epel源
+DNF 
+dnf -list  = yum list 
+dnf search tree   = yum search tree
+dnf provides /usr/bin/rz  = yum whatprovides /usr/bin/rz
+根据程序的指令来获取程序的安装包名称
+[root@centos7 /]# dnf list available
+ 列出当前系统可以使用的软件包
+[root@centos7 /]# dnf  check-update 
+检查当前哪些软件包需要更新
+[root@centos7 /]# dnf autoremove 
+自动删除没有依赖关系的独立的无用的包
+
+ ubuntu更新系统：apt-get  upgrade
+ apt-get dist-upgrade
+ 
+ apt-get autoreomve
+ rhel更新系统  yum update 
+ yum upgrade
+ 
+ 2017/3/12
+ 通过终端管理服务器的软件：
+ putty、secureCRT、Xmanger（xshell）
+ 非对称加密（RSA）--对称加密
+
+ 
+ yum  install  gcc  用于库依赖，必须安装
+yum install  lrzsz  用于终端远程上传和下载到服务器，必须保证终端具备modem协议，通常用crt、xshell、putty等使用
+
+ yum install bash-completion
+这个工具用来实现在bash环境中的命令自动补齐
+
+yum install net-tools   提供了ifconfig等网络指令集
+
+2、Linux文件权限和目录配置
+通过ll获取文件的属性，共分为七段：
+权限  硬链接  文件的所有者  文件的所属组 文件大小 文件的修改或创建日期  文件名
+
+-rw-------
+第一位表示文件的类型：
+- 表示普通文件
+b 表示块设备文件（存储）
+c 表示字符型设备文件 （通常是鼠标键盘）
+d 表示目录
+l 软链接文件
+p 管道文件（本地的程序间沟通产生的文件）
+s 套接字文件（通过网络不通进程进行连接的文件）
+
+后面的九位是定义的文件的权限
+---------
+rwxrwxrwx
+r  读    4
+w  写    2
+x  执行  1
+第一段的三位表示文件的所有者的权限 u
+第二段的三位表示的是文件的所属组的权限 g
+第三段的三位表示的是其他人的权限 o
+
+修改权限的指令：
+chmod  {u|g|o|ug|go|uo|ugo|a} {+|-|=} 
+{r|w|x}  filename
+例：chmod g-r passwd 
+chmod u+w,g=rw,o+rw passwd
+
+[root@centos6 tmp]# chmod 400 passwd 
+表示passwd文件除了使用具备只读权限外，其他人不具备任何权限。
+
+ chmod -R 760 test/
+参数-R表示递归，这样操作会将test目录下的所有文化或者目录都改为指定的权限
+
+注：x权限对文件意味着是否具有执行权限，这里的执行也就是运行脚本或应用。对于目录意味着是否可以cd进去。
+如果A目录中含有root的文件或者目录，即便普通用户对A目录具备所有权限也无法删除root的东西。但是其他普通的是可以正常删除的。
+
+绝对路径和相对路径
+cd ~tom/    cd ~/tom
+~ : 当前用户所在的家目录
+ cd /home/jarry/   这个是绝对路径
+-  表示返回上次所在的目录
+.   表示当前目录
+.. 返回上一级目录
+
+rm  删除文件
+rmdir  删除空目录
+mkdir   创建目录
+
+echo $PATH   
+$是一个变量符号，PATH是一个变量名称，这里表示请求查看当前用户的指令执行路径
+
+c、yum安装
+优点：尽可能解决包依赖，方便
+缺点：存在版本依赖
+
+d、dnf安装
+
+2017/3/17
+cp  -rf  强制递归复制文件（目录）
+cp  -p   复制文件时将文件的属性一同复制
+mv  移动和重命名
+touch  创建文件
+FHS（文件系统层次标准）：可以被共享的，不可以被共享的，可以被修改的，不可以被修改的
+/usr是可以被共享的，不可以被修改
+/boot/ /etc/是不可以被共享的
+var/www是可以被改变的
+var/lock
+var/run不可以被共享的，可以被修改
+FHS定义了三层目录下应该的数据：
+/  /usr   /var 
+
+
+2017/3/19 上午
+umask  文件权限过滤符
+umask的值由4位数构成，最后三位分别表示ugo
+文件                目录
+6    6    6       7   7    7
+rw-  rw-  rw-    rwx  rwx  rwx
+              0022
+rw-  r--  r--    rwx  r-x  r-x
+6     4   4       7   5    5
+              0333
+4    4    4       4   4    4
+
+隐藏属性  chattr  +选项  目标文件或目录
+只能使用unix/linux类的文件系统，不支持vfat文件系统
+a  目录中的内容只能添加不能删除
+A  不能修改文件的访问时间
+i  针对文件只读，不能执行任何属性的修改和文件内容的修改。针对目录，不可以删除和创建内容在目录中。
+S  立即执行同步写操作，不缓存数据的
+u  保证备份进行数据恢复的（未成功）
+
+[root@centos6 test]# ll /usr/bin/passwd   查看passwd命令权限
+在u的位置的执行权限不是x，而是s，这个就是suid
+当一个文件被设置了suid，那么所有用户在执行这个文件时就具备了和这个文件的所有者同等的权限。这个权限通常只是针对文件设置。针对文件
+
+[root@centos6 /]# chmod g+s test/  设置目录为sgid
+目录被设置SGID后，任何人再这个目录中建立的文件，都属于这个目录本身所属组。针对目录
+
+SBIT：在设置了sbit的目录中，只有文件的所有者或者是目录的所有者以及root可以删除
+[root@centos6 /]# chmod o+t test/
+设置test目录为sbit权限
+
+umask的第一位就是过来suid（4），sgid（2）和sbit（1）权限的。
+[root@centos6 /]# chmod 2777 /test/
+这个表示给test目录添加sgid
+
+注：如果在文件或者目录设置了suid等相关权限后出现的是大写的S或者T，表示本身这个目录或者文件没有执行x权限
+
+2017/3/19 下午
+文件查找 find 
+[root@centos6 tmp]# find /home -print 
+通过find查找家目录下的所有文件并打印出来。
+[root@centos6 /]# find / -name shadow 
+查找匹配的文件，-name表示文件名称，-iname表示忽略大小写。
+[root@centos6 tmp]# find . -type d 
+参数-type表示文件类型：
+l  链接文件
+d  目录
+f  普通文件
+c  字符文件
+p  管道文件
+s  套接字文件
+
+-maxdepth  目录的最大深度，表示最多检索多少层目录
+-mindepth  目录的最小深度，表示必须要从多少层开始检索
+
+[root@centos6 tmp]# find /  -maxdepth 2 -type f -name 6.pdf  
+多个参数叠加搜索，要注意检索时的参数顺序
+
+根据时间戳查找：
+访问时间（atime）（amin）
+修改时间（ctime）（cmin）
+变化时间（mtime）（mmin）
+[root@centos6 tmp]# find . -type f -atime +2 
+表示查找当前目录下的2天以前被访问过的普通文件。-2表示2天以内的文件。2表示正好2天。
+[root@centos6 tmp]# find . -type d -amin -5
+[root@centos6 tmp]# find . -type f -newer test1
+根据test1文件的时间戳列出比它更新的普通文件
+[root@centos6 tmp]# find . -size +10 
+查找出当前目录下所有大于10K的文件，如果是大于10M，需要指明+10M
+[root@centos6 tmp]# find . -size +90M -size -110M  指定大小范围检索
+[root@centos6 tmp]# find . -user tom -group root  根据用户名和组查找
+[root@centos6 tmp]# find . -iname \*.mp4 -delete
+查找出所有的mp4后缀的文件并删除
+[root@centos6 tmp]# find . -type f  -perm 777
+查找文件权限为777的普通文件
+[root@centos6 tmp]# find . -type f -perm -111
+查找普通文件中ugo三组中必须都有执行x权限的文件。-表示和。+表示或
+[root@centos6 tmp]# find . -type f -user tom  -exec chown root {} \;
+参数-exec是find工具中最强大的一个匹配选项，可以在检索完成后执行特定动作和指令。{}用来将检索后的内容匹配到命令中去。
+上面的意思整体就是查找属于tom 用户的所有普通文件，然后将所有文件的所有者改为root。
+
+文件系统：ext4（日志式文件系统），xfs，ntfs，fat32，tmpfs，proc
+文件系统是对一个存储设备上的元数据和数据进行组织管理的机制，可以简单理解为是告诉底层和上层如何去读取、存储数据
+
+日志式文件系统是类unix/Linux特有的，它会在启动时系统中生成一个journal。
+
+2017/03/26
+软链接: 快捷方式，不占用块空间，但是占用inode空间，而且它的存在依赖于它的链接文件。
+硬链接：  类unix中特有的，可以用来备份重要文件，并且不占用inode，不占用块空间，但是不能跨分区
+复制：产生一个全新的文件，生成新的inode，占用块
+移动：同一个分区下，不占用块空间，只是重新定义inode。不同分区下，会重新调整inode和块空间。
+
+磁盘分区：MBR和GPT
+fdisk  -l  查看当前的硬盘分区参数
+[root@centos6 ~]# fdisk /dev/sdb
+针对sdb硬盘进行分区操作
+   d   delete a partition
+删除一个分区
+  l   list known partition types
+显示已知的分区类型
+   t   change a partition's system id
+改变分区的系统编号，编号通过l获取
+   n   add a new partition
+添加一个新分区
+   p   print the partition table
+显示分区表
+   q   quit without saving changes
+不保存退出
+   w   write table to disk and exit
+保存并退出
+  
+分区完成后，硬盘需要进行文件系统定义和挂载才能使用。
+[root@centos6 ~]# mkfs.ext4 /dev/sdb5
+格式化磁盘，文件系统定义为ext4
+[root@centos6 ~]# mount /dev/sdb5 dir/
+将硬盘sdb5挂载到dir目录下
+
+[root@centos6 ~]# mount -o remount,ro /dev/sdb5  
+重新挂载sdb5并定义为只读，还可以定义rw，noexec（不能执行）
+
+[root@centos6 dir]# fuser -mv /dev/sdb5
+对于卸载时进程的占用，可以通过上面的指令查看是谁占用了挂载的硬件，然后可以通过kill等指令干掉对方。
+
+[root@centos6 ~]# fsck.ext4 -fc /dev/sdb5
+进程强制自检并显示过程
+
+gpt分区：parted
+[root@centos6 ~]# parted /dev/sdb
+使用parted工具对sdb进行gpt分区
+mklabel  创建分区表，指明gpt
+mkpart   创建分区 
+
+[root@centos6 ~]# gedit /etc/fstab 
+这个文件是用来实现自动挂载
+
+swap  类似于windows中的虚拟内存的概念
+个人计算机 休眠 hibernate swap分区大小必须至少和内存大小一样
+服务器 oracle 等应用对swap有特定要求，不创建无法安装数据库
+
+swap划分除了安装系统过程中定义以外，在系统安装好后也可以后期再生成。有二种方式：
+一种是基于新的磁盘，一种是基于文件。
+[root@centos6 ~]# mkswap /dev/sdb1
+用swap格式来格式化文件系统
+[root@centos6 ~]# swapon  /dev/sdb1
+激活swap分区，如果需要关闭swap分区，使用swapoff 
+最后写入fstab中实现自动挂载
+
+第二种方式通过生成空文件来实现swap挂载
+[root@centos6 ~]#dd if=/dev/zero of=fileswap bs=1M count=100
+[root@centos6 ~]# mkswap fileswap
+[root@centos6 ~]# swapon  fileswap
+最后也可以写入到fstab中
+
+数据恢复
+http://codebay.cn/post/1977.html?1490402903150 
+
+lsof
+系统进程会在后台为所有的文件提供一个文件描述符
+[root@centos6 ~]# lsof | less
+COMMAND     PID      USER   FD      TYPE             DEVICE  SIZE/OFF       NODE NAME
+FD 文件描述符  
+cwd 当前的应用程序在哪个目录下工作
+txt 可以执行的文件，比如二进制代码程序
+mem 内存中调用的文件
+0u  这个是文件打开后返回的一个整数值，u表示可以读写，r表只读，w可以写
+type表示类型，dir（目录） reg（文件）
+clk（字符文件）blk（块设备文件）
+node 表示inode值
+[root@centos6 tmp]#lsof /var/log/messages    查看系统中被进程占用的这个文件的信息
+[root@centos6 tmp]# lsof |grep delete --color
+查找最近被删除过的文件，前提是系统没有重启
+根据文件描述符，找到/proc/进程号/fd/对应的文件描述符进行恢复
+[root@centos6 tmp]#cat 4 > /var/log/messages
+
+使用软件恢复
+debugfs
+r—linux
+foremost：支持的文件系统类型很多，但有些特定格式的文件不支持
+extundelete：支持ext文件系统。不能够实现同一个分区下的数据恢复
+
+2017/3/28  vim
+vim  编辑器之神 1991    vi 1976
+emacs 神的编辑器    1975
+文本文档  notepad++
+
+IDE  集成开发环境
+
+命令模式    esc返回到命令模式
+i  进入插入模式，光标维持不动
+I  进入插入模式，光标会停留在行首
+a  进入插入模式，将光标后移一格
+A  进入插入模式，光标移动到行尾
+o  进入插入模式，向下新建一行开始
+O  进入插入模式，向上新建一行开始
+u  回退，对修改的返回
+ctrl+r 前进
+插入模式
+末行模式 “：”保存、退出、定位、查询、修改
+注：在任何模式下如果希望进行模式间的切换，都必须先返回到命令行模式，所以esc很有用
+
+:q!  在vim中这个表示强制退出
+:wq 保存并退出
+:X  加密
+:x  写入退出
+末行模式下的内容替换
+:s/lp/lg/   在当前行找到lp并替换为lg
+:s/lp/lg/g  最后的g表示全局，这里的全局是指的当前行
+:/XX  表示搜索文档中包含xx的内容。搜索出的内容会高亮显示，按n可以在所有内容中逐个向下查看，N向上查看
+:6s/bin/Linux/g     6s表示修改第六行
+:.,$s/bin/llll/g   .表示当前行，$表示最后一行
+:%s/bin/xxx/    %表示全局替换                         
+:%s/^#//g   ^表示开头，这里的理解是将整个文档开头带#的内容全部删除。（最后2个/没有空格，所以是删除）
+
+命令行模式下的定位：  n（数字） G
+gg  回到第一行
+G   回到最后一行
+复制 yy
+黏贴 p
+10yy  表示复制10行
+剪切  dd  删除
+r（紧跟你希望的字符）  替换一个字符
+x  删除一个字符
+
+M 光标移动到屏幕中央的行的第一个字符
+H 光标移动到当前屏幕第一行的第一个字符
+L 光标移动到屏幕最后一行的第一个字符
+0 数字0直接到光标所在行的第一个字符
+$ 到光标所在行的最后一个字符
+
+块选择 ctrl+v
+分屏 :sp
+ctrl+w 上下箭头，切换（建议ctrl w w）
+
+多文档编辑  vim file1 file2  
+:next  进入下一个文档
+:N   返回上一个文档
+:files  查看当前所有打开的文档
+
+2017/3/30
+[root@centos6 ~]# vim .vimrc
+vim的配置文件
+set nocompatible     关闭兼容模式
+set compatible 就是让vim关闭所有扩展的功能，尽量模拟 vi 的行为。但这样就不应用vim的很多强大功能，所以一般没有什么特殊需要的话（比如执行很老的 vi 脚本），都要在 vim 的配置开始，写上 set nocompatible，关闭兼容模式。由于这个选项是最最基础的选项，会连带很多其它选项发生变动（称作副作用），所以它必需是第一个设定的选项。
+set?fileencodings=gbk,ucs-bom,utf-8,cp936,gb18030,big5,euc-jp,sjis,euc-kr,ucs-2le,latin1 
+设置多编码处理??
+set?encoding=utf-8
+set fileformats=unix,dos,mac 设置文件格式??
+set backup        指定备份，不需要改为nobackup
+set backupdir=~/backup    设置备份文件目录
+set history=50    设置搜索的历史记录
+set?ignorecase?smartcase    搜索时忽略大小写，但在有一个或以上大写字母时仍保持对大小写敏感??
+set ignorecase    搜索时忽略大小写
+set hlsearch    高亮查找内容
+set cursorline　高亮显示当前行
+set cursorcolumn　高亮显示当前列
+set incsearch    使用增量查找，不需要加noincsearch
+set number    设置行号
+set showmatch    显示配对括号
+syntax on     开启语法高亮
+filetype?on    打开文件类型检测功能，根据文件名自动判断文件类型，实际上执行的是$vimRUNTIME/filetype.vim脚本
+set laststatus=2　　　总是显示状态栏
+colorscheme?xoria256? 指定配色方案??
+highlight Comment ctermfg=LightCyan   更改注释颜色为淡青色，前提是开启语法高亮
+set wrap   自动折行，在默认情况下，Vim会自动折行––将超出屏幕范围的文本打断并显示在下一行
+set undolevels=1000   允许撤销的次数
+set?ruler   显示当前位置于右下角
+set?textwidth=100  每行最大 100 字符
+set?tenc=gbk  term 下的编码，可选
+
+
+vundle插件管理器，它本身也是插件，但是通过它可以管理上千个vim的其他插件，通过插件的组合，可以制作属于自己的IDE（集成开发环境）
+[root@centos6 ~]# mkdir -p .vim/bundle
+所有的插件下载后都会安装在这个目录下，包括我们需要下载的vundle
+
+
+
+git  版本控制
+a1.0  
+a1.1 
+a1.2
+a1.3
+版本     用户      日期    改变
+1.0      zrq       2.21    第三行xx
+2.0      zrq       2.23    删除第三行
+3.0      lmx       2.28    改变了题目
+
+git  最好的分布式版本控制系统
+往Git版本库里添加文件的时候，是分两步执行的：
+第一步是用git add把文件添加进去，实际上就是把文件修改添加到暂存区；
+第二步是用git commit提交更改，实际上就是把暂存区的所有内容提交到当前分支。一旦提交后，如果你又没有对工作区做任何修改，那么工作区就是“干净”的；
+因为我们创建Git版本库时，Git自动为我们创建了唯一一个master分支，所以，git commit就是往master分支上提交更改。
+可以简单理解为，需要提交的文件修改通通放到暂存区，然后，一次性提交暂存区的所有修改。如果还有不理解的可以先百度或谷歌，还不理解再问我。
+
+[root@centos6 ~]# mkdir mygit
+创建一个目录，mygit，这个目录作为我们的仓库
+[root@centos6 mygit]# git init 
+在我们的仓库目录中初始化，生成.git目录，这个目录用来追踪版本变化
+[root@centos6 mygit]# cp /etc/passwd .
+[root@centos6 mygit]# git add passwd
+[root@centos6 mygit]# git commit -m "1936.1.0"   将仓库中的文件提交，参数m为注释信息
+[root@centos7 mygit]# git diff passwd    对比文件的前后区别
+[root@centos7 mygit]# git add  passwd  添加到仓库中
+[root@centos7 mygit]# git status    显示当前被修改过的文件，根据有没有状态显示我们可以决定是否需要提交
+[root@centos7 mygit]# git commit -m "this is 1.1"    提交文件到仓库
+[root@centos7 mygit]# git status   再次查看当前是否存在需要提交的修改文件，显示clean
+[root@centos7 mygit]# git log   显示从最近到最远的提交日志。
+注：log里显示的commit id是sha1计算出来的，可以防止在多人协同时版本号的冲突。比如都用数字(1,2,3,4)做版本号。
+[root@centos7 mygit]# git reset --hard d5047b134117e0ec38ed1468c40bb4e5b6071fe1   根据git log显示的commit版本号回退到最初
+[root@centos7 mygit]# git log   再次查看版本，因为已经回退到最初，所以提交的日志也只有最初的
+[root@centos7 mygit]# git reflog     查看reflog，这里记录每次命令操作，可以通过里面的commit id号前进到各个版本
+oot@centos7 mygit]# rm passwd    删除文件
+[root@centos7 mygit]# git checkout -- passwd   撤掉所有对工作区的修改，对于修改后没有提交的情况下可以撤销所有修改，对于误删的文件也可以恢复
+[root@centos7 mygit]# git rm passwd   删除版本库中的文件
+[root@centos7 mygit]# git commit -m "remove"  提交，文件从版本库中被删除
+[root@centos7 mygit]# git reflog    查看历史记录
+[root@centos7 mygit]# git reset --hard d5047b1   仍然可以通过git恢复
+
+2017/4/6
+1、增加远程的仓库
+$ git remote add origin https://github.com/Tailless-Monkey/Linux-7.git
+2、查看是否添加成功
+$ git remote -v
+3、将远程仓库克隆或者下拉
+将远程仓库克隆到本地，克隆时要注意路径
+$ git clone https://github.com/Tailless-Monkey/Linux-7.git
+在远程仓库上做了修改，希望保证本地和远程版本一致，使用pull下拉
+$git pull origin  master
+4、推送本地的修改到远程仓库
+
+系统用户
+/etc/passwd 
+系统使用uid来表示用户名
+使用git表示组名
+uid=0  root 
+uid从1到499都是系统用户，PAM模块会过滤500以内的uid用户
+uid从500-65535，都是普通用户
+root:x:0:0:root:/root:/bin/bash
+用户名：密码：uid：gid：注释：家目录：shell环境
+
+/etc/shadow   密码文件
+用户名：密码（sha-256）：unix纪元时（1970-1-1）：最少使用天数：最多使用天数：密码到期前的警告天数：不活跃时间：失效时间
+
+添加tom用户到root组
+[root@centos6 ~]# gpasswd -a tom root
+[root@centos6 ~]# id tom  查看系统中的用户
+创建一个用户marry并加他加入到root组
+[root@centos6 ~]# useradd -G root marry  
+
+[root@centos6 ~]# newgrp  marry  将当前用户临时加入marry组
+
+[root@centos6 桌面]# vim /etc/default/useradd 
+这个文件是修改用户创建时的默认参数
+
+[root@centos6 桌面]# useradd  -c "i am jack"  -s /sbin/nologin/  -d /home/jack    -g tom   -G  tom  -u 1000 jack 
+创建一个用户jack
+
+[root@centos6 桌面]# passwd jack  用户jack设置密码
+[root@centos6 ~]# passwd -d jack  清空密码
+
+2017/4/9
+一、github
+
+二、用户账户
+finger tom  查看用户详细信息
+chfn  tom  修改用户的finger信息
+[root@centos6 ~]# chsh -s /sbin/nologin jack
+修改用户登录的shell环境
+添加组和删除组（不依赖用户）
+[root@centos6 ~]# groupadd xx
+[root@centos6 ~]# groupdel xx
+[root@centos6 ~]# gpasswd -d jack tom 从tom组中删除jack
+[root@centos6 ~]# gpasswd -a jack tom  添加jack到tom组
+
+两种批量创建用户的方法：
+1、for 循环添加
+[root@centos6 ~]# for i in `seq 1 10`
+> do
+> useradd user$i
+> echo "redhat" | passwd --stdin user$i
+> done
+
+2、通过文件来添加  /etc/passwd   /etc/shadow
+pwconv    
+pwunconv 取消shadow加密
+newusers < *.txt 
+chpasswd < *.txt
+这样操作后用户不存在家环境，从/etc/skel中拷贝所有环境文件到每个用户的家目录
+
+三、密码规则
+root  
+禁止远程登录   ssh禁止
+设置足够强的密码，并且设置定期更改的时限
+[root@centos6 ~]# vim /etc/login.defs 
+这个文件可以设置密码的规则
+[root@centos6 ~]# vim /etc/pam.d/system-auth
+这个文件也可以设置用户登录的密码规则
+ 16 password    sufficient    pam_unix.so sha512 shadow nullok try_firs
+    t_pass use_authtok remember=3
+remember=3表示修改密码不能重复3次以内
+[root@centos7 ~]# vim /etc/security/pwquality.conf 
+设置密码的详细规则，针对所有用户
+ 51 minlen = 8   最小长度
+ 52 minclass = 1   最小类别，表示密码中最小的字符类别是几个，比如大写字母算一个，小写字母算一个，特殊符号算一个
+ 53 maxrepeat = 2  密码中允许出现的连续相同的字符最多是2个 
+ 54 maxclassrepeat = 4   密码中不允许出现连续的字符类别
+ 55 lcredit = 0   在新密码设置时最少需要包含几个小写字母
+ 56 ucredit = 0  在新密码设置时最少需要包含几个大写字母
+ 57 dcredit = 0 
+ 在新密码设置时最少需要包含几个数字
+ 58 ocredit = 0
+在新密码设置时最少需要包含几个特殊字符
+ 59 maxsequence = 3
+在新密码中不允许连续出现同类的字符3个以上
+ 60 difok = 8
+在新密码设置中不允许和上一个密码的相同字符达到8个
+ 61 gecoscheck = 3
+在新密码中密码的相同字符不能超过gecos信息的3个
+
+[root@centos7 ~]# chmod 700 /usr/bin/su
+禁止其他用户使用su
+
+四、FACL
+bob（读）  tom（写）  jarry（读写） jack（读x）
+xx 
+[root@centos6 tmp]# getfacl  xx  查看文件xx的acl规则
+[root@centos6 tmp]#  setfacl -m u:bob:rwx xx  针对文件xx为用户bob设置acl，参数m表示修改
+注：[root@centos6 tmp]# getfacl xx  查看权限
+user:jarry:rwx			#effective:---
+如果出现上述内容，那么facl规则没有生效，重新执行setfacl
+[root@centos6 tmp]# setfacl -x u:jarry xx
+删除用户的facl，参数x就是remove
+[root@centos6 tmp]# setfacl -m u:bob:rwx rhce/
+针对目录实现facl
+[root@centos6 tmp]# setfacl -m d:u:bob:rwx rhce/
+不论是谁在rhce目录下创建的文件或者目录，bob都具有默认的权限
+[root@centos6 tmp]# setfacl  -x d:u:bob xx
+删除的acl，但是默认的规则会保留
+[root@centos6 tmp]# setfacl -k rhce/
+删除默认的规则
+
+五、sudo
+visudo或者vim /etc/sudoers  
+ 99 bob     ALL=(ALL)       ALL
+    用户    主机名         命令
+ 99 bob     ALL=(root)      NOPASSWD: /bin/mount,/bin/umount
+表示不输入密码
+
+六、PAM
+插入式验证模块 SUN
+提供了一个API，用于系统的安全认证方面
+pam模块所在位置 /lib64/security
+/usr/share/doc/pam-1.1.1/txts  这个目录下存放了所有模块的说明文档
+pam_access.so   比如这个模块就是控制用户登录的
+[root@centos6 pam.d]# vim /etc/pam.d/sshd
+查看这个pam插件的具体格式
+       模块类型    	控制标记	调用的模块
+模块类型：	   
+认证模块auth   认证用户管理的
+账户管理account   认证账户执行与访问的控制权限
+密码管理password   设置密码、密码强度、更新密码
+会话管理sessions 管理连接和断开
+控制标记：
+required  当带有这个标记的模块只有全部通过验证才表示鉴定完毕。如果有不符合的，模块不会返回信息
+include  同时调用其他模块或脚本
+sufficient 模块一旦验证成功，PAM立即返回成功标识，不再继续。如果失败，继续
+optional 不论成功失败，都继续
+requisite 失败即终止，其他跟required一样
+
+/etc/pam.d目录下存放了模块的所有环境文件
+		
+七、互动
+w 查看当前的用户
+who 查看当前用户，信息更简单直接
+mesq n  关闭通知
+mesq y  开启通知
+wall “XXXX”  发送广播
+write username  tty2  单向联系
+
+2017/4/11
+进程管理
+linux是一个多用户多任务多线程的环境
+进程 动态 是有一定的生命周期，随着程序动态产生和消亡
+程序 静态 
+前台 程序打开的进程只有在执行完成后才会在终端返回信息，这个过程中，用户不能执行其他新的进程
+后台 程序启动时跟上& ，表示将进程放在后台执行。不用等待进程结束，用户也可以执行其他的新的进程。但这种方式不能用于交互式的进程
+[root@centos6 ~]# jobs  查看后台工作的进程
+[root@centos6 ~]# fg 1  直接将后台的进程拉到前台，后面的1是通过jobs查看到的后台进程序号
+
+将一个前台的进程放到后台执行
+ctrl + z 将一个进程停止并放到后台
+bg 1  将后台停止的进程激活
+
+[root@centos6 ~]# killall -9 ping  直接通过进程名称杀死进程。9表示强制
+[root@centos6 ~]# kill -9 %1  杀死后台的第一个进程。%表示后台
+[root@centos6 ~]# pidof firefox  找到进程的pid号 
+[root@centos6 ~]# kill -9 13842 通过pid号杀死进程
+
+脱机管理：我们在执行某一个进程时，有的用户是远程，有的是本地。在本地终端开启了一个进程供远程使用，这时如果因为crtl+c或者终端异常退出，这些情况都会导致远程用户无法使用这个进程。我们需要脱机管理这个进程。nohup可以忽略所有的挂断信号，继续执行。
+[root@centos6 桌面]# nohup ping localhost
+在指令前加上nohup，实现脱机管理
+
+[root@centos6 ~]# ps  查看当前shell环境下的所有进程
+[root@centos6 ~]# ps -aux 查看所有用的进程，
+进程的状态：
+S 可以中断的休眠状态
+R 当前正在运行的状态
+T 停止的进程
+X 死掉的进程
+Z 僵尸进程
+s 表示包含子进程
+N 表示低优先级
+< 高优先级
+l 多线程
++ 后台的进程
+[root@centos6 ~]# ps -ex -O user,%cpu,%mem 指定格式输出
+场景：快速定义出某一个进程
+
+进程的执行顺序
+调度策略会对系统进程进行排序，调度策略默认是根据优先级来排序的。
+
+[root@centos6 ~]# top  实时查看系统的资源统计信息
+load average: 0.00, 0.00, 0.00  平均负载，1分钟5分钟15分钟三个时间段cpu的负载情况
+Cpu(s):  0.0%us,  0.0%sy,  0.0%ni,100.0%id,  0.0%wa,  0.0%hi,  0.0%si,  0.0st
+定义的是cpu的使用情况
+us表示用户空间占用cpu的资源情况
+sy表示内核空间占用cpu的资源情况，由大的IO造成的
+ni改变优先级的进程占用的cpu资源
+id空闲的cpu资源
+wa表示io在等待占用的资源
+hi表示硬件中断占用的资源
+si表示软件中断占用的资源
+st steal time 表示虚拟cpu等待占用真实cpu的资源比
+
+buffers(即将写入的)/cache（要读取的）  都是生活在RAM中 
+
+PR 表示进程优先级（是由系统的优先系数（是内核主动分配的，用户不能修改）+nice得到）数字越小，优先级越高，ni为-20最优先执行
+NI  nice值
+VIRT  虚拟内存总量（swap+res）
+RES 真实物理内存  
+SHR 共享内存
+nice值从-20到19，默认系统的nice是0.最大是-20.最小是19.
+1 表示显示所有逻辑cpu的资源统计信息
+x 对列高亮，默认是%cpu高亮，shift+>表示移动高亮到某一列
+r  修改nice值来决定某一个进程的优先级
+[root@centos6 ~]# renice 0 18862通过命令修改
+[root@centos6 ~]# nice -n 19 cat /dev/zero > /dev/null 
+在进程启动前就定义优先级
+
+系统资源的查看
+[root@centos6 ~]# netstat -ntlup |grep :22
+[root@centos6 ~]# ss -ntlup |grep :22
+[root@centos6 ~]# free  查看内存
+[root@centos6 ~]# uptime  查看登录的用户以及开机的时间等信息
+[root@centos6 ~]# vmstat 1 3  查看系统的信息报告了，1秒执行一次，一共执行3次
+si 磁盘每秒钟读入虚拟内存的大小，这个值如果大于0，说明物理内存已经耗尽
+so 每秒钟写入虚拟内存的大小
+bi 块设备每秒接收的块数量
+bo 每秒发送的块数量
+in 每秒cpu的中断次数
+cs 每秒钟上下文的切换次数
+
+sar 非常重要的一个工具，可以通过它判断系统的整体性能，可以通过sysstat的安装获取这个工具
+[root@centos6 ~]# sar -P ALL 1 2  查看所有逻辑cpu的状态报告，1秒钟一次，一共采样2次
+[root@centos6 ~]# sar -r 1 2  对内存采样
+[root@centos6 ~]# sar -b 1 2  对磁盘io采样
+ tps      每秒向磁盘发送的请求
+rtps     每秒向磁盘的读请求 
+wtps      写请求
+bread/s   每秒读取的数据量
+bwrtn/s   每秒写入的数据量
+[root@centos6 ~]# sar -d -p  1 2  显示具体块设备的状态，-p表示显示标准的名称，-d表示dev
+[root@centos6 ~]# sar -n DEV 1 3  查看网卡的使用状态
+
+
+2017/4/13 selinux 
+selinux  美国国家安全局 fedora 联合开发
+标签系统，为所有的文件和进程打上特定标签，只有符合标签的用户才能执行相应的进程，当执行相应进程时，只能触碰这些进程指定的文件或者目录
+DAC  自主访问控制，通过文件或者目录的属性来实现读取
+MAC 强制访问控制，核心思想就是任何进行企图在selinux中执行时，必须在安全配置策略中具有特定权限
+
+MAC并不会取代DAC，它们可以并行运作，通常执行dac权限，系统再查看是否有MAC限制
+
+selinux 的最终目标是针对一个进程是否具有打开某些特定文档的权限
+
+selinux工作模式：
+主体：进程（程序）
+客体（目标）：文件、端口、设备
+策略：targeted策略（红帽中标准的策略）只提供针对网络服务的限制、mls最严格的策略规则，不论本地还是网络都要进行限制、minimum是targeted的升级版本，针对有限的进程进行限制
+安全上下文：security context定义了主体和客体的上下文必须一致的情况下才能安全访问
+移动文件时安全上下文不变
+复制文件时会生成新的安全上下文
+创建文件时会根据系统的预置生成上下文
+安装软件时上下文也会被系统定义
+系统登录时pam模块就预置了pam_selinux.so来定义用户的上下文
+
+上下文解读：
+system_u:object_r:admin_home_t:s0
+身份验证:角色:类型:mls使用的级别
+身份验证：这块内容在targeted策略中并不是十分重要
+          system_u管理员预设身份
+		  unconfined_u  不做定义
+		  user_u  普通用户
+		  
+角色：
+		文件或者目录 object_r
+         进程或者程序system_r
+类型:
+     程序  domain
+	 文件资源  type
+
+	
+[hf@centos7 tmp]$ ls -Z  查看上下文
+[root@centos7 tmp]$yum install setools\* -y            
+[root@centos7 tmp]$yum install policyor utils-python-2.5-11.el7_3.x86_64 
+安装上下文的查看工具
+
+[root@centos7 /]# semanage fcontext -l | grep /etc/passwd  查看系统中某一个文件或者目录或者进程的上下文
+
+[root@centos7 /]# ll /etc/sysconfig/selinux 
+selinux的主配置文件
+selinux的模式有三种（基于红帽系统）
+enforcing  强制模式，对违规进行限制（rhel7默认）
+permissive   宽容模式,只显示警告信息，不阻止
+disabled   禁用selinux。必须重启系统才能生效
+
+[root@centos7 /]# sestatus 查看当前selinux的状态信息
+[root@centos7 /]# getenforce  查看当前的selinux模式
+[root@centos7 /]# setenforce  设置selinux模式
+这些设置都是临时有效，如果要永久生效，修改配置文件
+
+实例：
+安装apache服务器，默认安装好后，首页路径在/var/www/html目录下，假如我们修改了默认的路径，那么selinux会阻止我们访问这个路径下的首页
+[root@centos6 tmp]# chcon -R -t httpd_sys_content_t /tmp/xx/
+[root@centos6 tmp]# restorecon -R /tmp/xx/ 还原上下文
+[root@centos6 tmp]# chcon -R --reference=/tmp /tmp/xx/   引用tmp目录的上下文给xx
+
+
+2017/04/16
+修改sshd 的默认端口，selinux在enforcing模式下，会发现标签的变化，然后阻止用户的这种行为。
+[root@centos7 ~]# cat /var/log/audit/audit.log |grep AVC | tail -5
+查看审计日志中关于AVC的信息。AVC是selinux机制中的一个策略服务器
+[root@centos7 ~]#systemctl status sshd  查看sshd服务当前的状态，如果端口修改，selinux开启的情况下，状态会报错
+[root@centos7 ~]# semanage port -l 查看系统中所有的进程对应的端口，以及对应的端口的上下文
+[root@centos7 ~]# semanage port -l | grep 22
+查看端口22的标签
+[root@centos7 ~]# semanage port -a -t ssh_port_t -p tcp 2222
+将端口2222的标签修改为ssh的标签
+
+selinux的布尔值
+[root@centos7 ~]# getsebool -a
+查看系统中默认的所有的布尔值
+[root@centos7 ~]# sestatus -b 
+使用sestatus工具也可以查看布尔值状态
+[root@centos7 ~]# setsebool -P ftpd_anon_write on  永久设置一个布尔值开关，不加p参数表示临时生效
+
+[root@centos6 booleans]# yum install policycoreutils\* 
+selinux的图形化管理工具
+
+[root@centos6 booleans]# yum install setroubleshoot 
+selinux的排故工具
+
+BASH
+unix shell
+shell 壳  shell是内核（linux）的壳，负责将用户的指令传递给内核，内核在控制硬件。
+shell是一个命令解释器，是c语言
+第一个shell是unix里的sh
+几乎所有的linux发行版中默认的shell都是bash
+shell有很多种，每种都带有自己的特定的功能和优点
+sh：AT&T 贝尔实验室 快速，简洁，运维使用，一般现在不使用，可以用于单用户模式
+bash：是bsh的升级版，bash整合了csh和ksh的功能，特点是功能强大，有很多特性，比如自动补全，拼写更正，颜色分类等等，是最常使用的版本
+tcsh ：不是标准的unix shell，提供了很多特殊的功能，但不常用
+csh：伯克利大学开发的，特性众多，但据说是执行效率不高
+ksh：AT&T开发，功能已经被bash整合
+zsh：终极shell。
+powershell：windows下的shell
+linux bash 通用，功能较均衡，执行效率快
+mac  zsh 
+windows powershell 
+
+[root@centos6 ~]# echo "today is" ; date ; cal
+多个指令可以使用；隔开，第一个执行完会执行第二个，以此类推
+
+[root@centos6 ~]# echo "scale=10；33/23" | bc 
+用scale控制计算精度，这里表示定义小数点后的10位
+[root@centos6 ~]# echo "obase=10；101010" | bc
+用obase定义转换的进制，这里是将101010转为10进制
+[root@centos6 ~]# echo "10^10" | bc  平方
+[root@centos6 ~]# echo "sqrt（100）" | bc 开根 
+[root@centos6 ~]# echo "1+1" | bc 
+
+单引号'' 单引号中被包裹的不论是什么都原样显示
+双引号"" 双引号中被包裹的内容除了会被原样显示之外，还能识别一些特殊的函数符号，比如$、\、``
+反引号`` 
+[root@centos6 ~]# echo Today is `date` 在linux中反引号起到命令替换的作用。将字符串中的某一个被包裹的变为指令（指令存在）
+
+变量
+~   家目录，当前用户的家
+在bash中，变量使用时基本不需要声明类型，每个变量的值都是字符串
+echo $PATH
+echo $PS1
+格式：变量名=值
+注：变量不能是数字开头，等号两边不能有空格
+本地变量  只在当前的shell环境中定义，不会影响其他shell或者子shell   xx=24 
+查看变量一定是用$标记，变量名区分大小写，系统默认的变量一般都是大写
+[root@centos6 ~]# unset xx  取消变量xx
+环境变量   sshd   
+[root@centos6 24]# pgrep sshd  获取某一个进程的pid
+\0  分割符
+\n 换行分割
+[root@centos6 ~]# export   查看当前的环境变量
+[root@centos6 ~]# env  查看当前的环境变量 
+[root@centos6 ~]# export xx=24  设置xx为环境变量
+[root@centos6 ~]# declare -x zz=10  定义环境变量
+[root@centos6 ~]# declare -i bb
+定义变量bb为整数，如果取消+i
+[root@centos6 ~]# declare -r aa  定义只读变量
+
+位置变量：
+$0   执行脚本或者指令的名称
+$1   第一个参数
+$2   第二个参数
+类推
+$@   所有的参数都显示
+$#  　参数的总数
+[root@centos6 tmp]# echo ${13}  查看变量名时用{}内容是一个整体
+
+shell中的read（交互）
+[root@centos7 ~]# read xx
+read是表示从系统中读取，将获取到的信息赋值给xx
+[root@centos7 ~]# read   不写变量名，赋值给默认的变量REPLY
+[root@centos7 ~]# read -s password  不进行回显输入
+[root@centos7 ~]# read -t 2 p
+设定timeout超时时间
+[root@centos7 ~]# read -p "Enter input:" -d "￥" xx  参数-p表示显示信息，-d定义中断符
+
+数组
+普通数组（下标数组）
+[root@centos6 tmp]# xx=(aa bb cc dd ee)
+[root@centos6 tmp]# echo $xx
+[root@centos6 tmp]# echo ${xx[0]}
+[root@centos6 tmp]# echo ${xx[@]} 查看所有数组
+[root@centos6 tmp]# echo ${！xx[@]} 查看所有数组的下标
+[root@centos6 tmp]# echo ${#xx[@]} 查看所有数组的数量
+
+关联数组：通过自定义的字符串来建立索引
+[root@centos6 tmp]# declare -A xx
+首先定义一个关联数组的类型
+
+变量内容的删除、替换
+[root@centos6 tmp]# r=${path#*/bin:}
+一个#表示从前往后执行最短匹配
+二个#表示执行最长匹配
+%表示从后往前最短匹配
+%%表示从后往前最长匹配
+
+[root@centos6 ~]# aa=${xx-"error"}
+如果xx这个变量不存在，aa的变量值就是error，如果存在，就是xx的值
+注：空值和不存在是有区别的
+[root@centos6 ~]# aa=${xx="error"}
+如果存在就赋值给aa
+[root@centos6 ~]# aa=${xx?"error"}
+如果不存在，将问号后面的内容赋予变量，一般作为警告表示。
+
+[root@centos6 tmp]# set -u  开启变量提示功能，会判断变量是否存在
+[root@centos6 tmp]# set +u  取消提醒
+[root@centos6 tmp]# set -x   开启回响模式
+[root@centos6 tmp]# set +x   关闭回响模式
+
+[root@centos7 tmp]# vim /etc/issue
+设置登录前的信息
+\d 显示当前时间
+\n  显示当前网络信息
+\v   显示操作系统版本信息
+
+ .bash_profile   用户登录时执行，设置用户的环境变量，主要配置还是来自.bashrc
+ .bashrc  设置用户的bash环境，每打开一个shell都会读取
+ /etc/profile
+ 
+ 
+通配符：
+[]  代表一个字符
+[a-z]  26个字母中匹配一个
+[a\-z]  匹配a、 - 、 z
+[0-9]  匹配数字0-9中的一个
+[!0-9]  除了数字
+?  匹配一个任意字符
+*  匹配任意字符，任意长度
+[root@centos7 tmp]# ls [0-9][!0-9]e?[!a-z]*.mp3
+
+重定向
+stdin  0
+stdout  1  
+stderr   2
+
+输出重定向  > 
+[root@centos7 tmp]# date > xx
+先检查右边是否有文件存在，如果没有，创建，如果有，清空内容，将左边的结果输出到右边的文件中，如果想追加，使用>>
+不论是>或者>>，都只会重定向正确的内容，如果要定义错的输出，可以使用2>或者2>>
+假设希望不论正确还是错误都进行输出，使用&>
+[root@centos7 tmp]# ca1 >>  xx 2>&1
+将错误的结果当成正确的进行重定向
+[root@centos7 tmp]# cal >>  xx 1>&2
+将正确的结果当成错误的重定向
+
+输入重定向
+[root@centos7 tmp]# wc -l < /etc/passwd
+将输入重定向到passwd文件，统计行数
+[root@centos6 tmp]# mail -s "passwd" root < xx
+将xx文档的内容作为邮件内容发送给root
+
+here文档：heredoc
+[root@centos6 tmp]# cat > server.repo << EOF 
+>  [base]
+>  name=base
+>  baseurl=file:///mnt/
+>  enabled=1
+>  gpgcheck=0
+>  EOF
+
+和或
+command1 || command2  一个为真，整体为真
+command1 && command2 两者都为真，整体为真
+
+[root@centos6 tmp]# grep tom /etc/passwd --color  过滤我们想要的内容
+[root@centos6 tmp]# grep -inv root /etc/passwd --color  参数i表示忽略大小写，n表示显示行号，v表示反向过滤
+
+管道：将前面命令执行的结果作为后面命令执行的依据
+cut 剪切  参数-d 定义一个分隔符 ，参数-f定义分隔的是第几段
+[root@centos6 tmp]# ifconfig eth0 | grep "inet addr" | cut -d ":" -f2 |cut -d " " -f 1
+
+[root@centos6 tmp]# last | cut -d" " -f 1 | sort   | uniq -c   查看最近一次登录的用户，uniq表示对最近的重名用户统计
+
+[root@centos6 tmp]# paste aa bb > xx
+文档内容的合并
+
+2017/04/18   正则表达式
+正则表达式是用来模糊匹配文本的规则的处理工具
+^tom      匹配开头是tom的内容
+tom$      匹配尾部是tom的内容
+.         匹配任意一个字符  
+[]        to[am]  toa和tom
+[^]       9[^78],不能匹配97和98
+[-]       8[0-6],可以匹配80-86，但是87不行
+?         匹配前面的项目0或者1次 
++         匹配前面的项目0或者多次 
+*         匹配前面的项目多次
+()        ma(irt)?x  
+{n}       匹配的次数[0-9]{3}  [0-9][0-9][0-9]
+{n,m}     至少匹配的次数 [0-9]{2,4}
+|         aaa{1st|2nd}  匹配aaa1st和aaa2nd 
+
+[root@centos6 tmp]# grep tom xx.txt  --color
+[root@centos6 tmp]# grep tom$ xx.txt  --color
+[root@centos6 tmp]#grep tom.. xx.txt  --color
+匹配tom后面包含2个字符的行，不可以匹配换行符 
+[root@centos6 tmp]# grep 'tom.*'  xx.txt  --color
+匹配tom后面有任意字符的内容，加引号防止解析错误
+
+* + 贪婪型元字符，过滤时作最长匹配
+[root@centos6 tmp]# egrep 'btom+' xx.txt --color
+？  懒惰匹配
+[root@centos6 tmp]# egrep 'btom?' xx.txt --color
+
+[root@centos6 tmp]# egrep '[Tt]om' xx.txt  --color   匹配Tom或者tom
+
+[root@centos6 tmp]# egrep '^[^Tt]..' xx.txt --color  排除开头T或者t的行
+
+如果我们需要匹配的是一个单词的开头，可以使用\<,
+单词的结尾用\>
+[root@centos6 tmp]# egrep '\<tom' xx.txt  
+[root@centos6 tmp]# egrep 'tom\>' xx.txt  --color
+
+[root@centos6 tmp]# egrep '\btom\b'  xx.txt  --color
+精确定位只包含tom单词的行，tom的前后均没有其他字符
+
+正则表达式中我们还可以做标签，先定义一个符合规则的标签，然后我们可以在后面引用这个标签的内容。做标签使用\(\)
+
+如果希望对出现的匹配的字符做限制，可以用\{n\}
+[root@centos6 tmp]# grep 'tom.\{5\}' xx.txt  --color
+
+grep -E和grep -P中可以用\d  等同于 [0-9]
+
+邮箱
+xxx@xx.XX
+
+[root@centos6 tmp]# grep -E '[a-z0-9]+@[a-z0-9]+\.[a-z]+' /var/log/maillog  --color
+邮箱的匹配
+
+正则其实也势利，削尖头来把钱揣；?（指开始符号^和结尾符号$）?
+特殊符号认不了，弄个倒杠来引路；?（指\.?\*等特殊符号）?
+倒杠后面跟小w，?数字字母来表示；?（\w跟数字字母;\d跟数字）?
+倒杠后面跟小d，?只有数字来表示；?
+倒杠后面跟小a，?报警符号嘀一声；?
+倒杠后面跟小b，?单词分界或退格；?
+倒杠后面跟小t，?制表符号很明了；?
+倒杠后面跟小r，?回车符号知道了；?
+倒杠后面跟小s，?空格符号很重要；?
+小写跟罢跟大写，多得实在不得了；?
+倒杠后面跟大W，?字母数字靠边站；?
+倒杠后面跟大S，?空白也就靠边站；?
+倒杠后面跟大D，?数字从此靠边站；?
+倒框后面跟大B，?不含开头和结尾；?
+单个字符要重复，三个符号来帮忙；?（*?+?？）?
+星加1?到无穷，问号只管0?和1；?（*表0-n;+表1-n;?表0-1次重复）?
+花括号里学问多，重复操作能力强；?（{n}?{n,}?{n,m}）?
+若要重复字符串，园括把它括起来；?（（abc）{3}?表示字符串“abc”重复3次?）?
+特殊集合自定义，中括号来帮你忙；?
+转义符号行不通，一个一个来排队；?
+实在多得排不下，横杠请来帮个忙；?（[1-5]）?
+尖头放进中括号，反义定义威力大；?
+（[^a]指除“a”外的任意字符?）?
+1竖作用可不小，两边正则互替换；?（键盘上与“\”是同一个键）?
+1竖能用很多次，复杂定义很方便；?
+圆括号，用途多；?
+反向引用指定组，数字排符对应它；?（“\b(\w+)\b\s+\1\b”中的数字“1”引用前面的“(\w+)”）?
+支持组名自定义，问号加上尖括号；?（“(?<Word>\w+)”中把“\w+”定义为组，组名为“Word”）?
+园括号，用途多，位置指定全靠它；?
+问号等号字符串，定位字符串前面；?（“\b\w+(?=ing\b)”定位“ing”前面的字符串）?
+若要定位串后面，中间插个小于号；?（“(?<=\bsub)\w+\b”定位“sub”后面的字符串）?
+问号加个惊叹号，后面跟串字符串；?
+PHPer都知道，?！是取反的意思；?
+后面不跟这一串，统统符合来报到；?（“\w*d(?!og)\w*”，“dog”不符合，“do”符合）?
+问号小于惊叹号，后面跟串字符串；?
+前面不放这一串，统统符合来报到；?
+点号星号很贪婪，加个问号不贪婪；?
+加号问号有保底，至少重复一次多；?
+两个问号老规矩，0次1次团团转；?
+花括号后跟个？，贪婪变成不贪婪；?
+还有很多装不下，等着以后来增加。?
+
+2017/04/20  sed和awk
+sed 流编辑器   vim 属于屏幕编辑器
+sed 优点:一边编辑一边调用，节省内存
+sed在编辑时，首先把文档中的一行读入内存，这行内容我们是可以编辑的，这个内存的行叫模式空间。编辑完成后，这行会输出到屏幕，同时清空模式空间的内容，然后读入下一行，重复
+这种修改默认模式下是不会修改源文件内容的
+
+sed ‘range command’ filename
+[root@centos6 tmp]# sed '1d' passwd  |more 
+删除文档passwd中的第一行内容。d是指令，表示删除
+[root@centos6 tmp]# sed 'd' xx.txt   删除所有内容
+[root@centos6 tmp]# sed 's/tom/TOM/g' xx.txt 
+使用s指令表示在文档中搜索并替代
+[root@centos6 tmp]# sed 's/tom/xxxx/2' xx.txt 
+针对tom内容进行标记，替换模式空间中的第二个tom内容，替换为xxxx
+[root@centos6 tmp]# sed '1s/ /--/2' bb  将文档中的第二个空格修改为--。
+[root@centos6 tmp]# sed 's/linux/-&-/1' bb  &符号表示引用前面的关键词，这里会将所有行中第一个linux变为-linux-
+[root@centos6 tmp]# sed '{s/linux/Linux/;s/Linux/rhel7/g}' bb
+如果对模式空间中的内容进行对次指令的调用，要用{;}格式
+[root@centos6 tmp]# sed 'y/id/12/' bb  针对单个字符的修改，不需要添加g，将所有的i变为1，所有的d变为2
+[root@centos6 tmp]# sed '/USERCTL/a\IPADDR\=192.168.1.1' ifcfg-eth0   a表示追加，在关键词的后面添加新的内容。这里是在userctl行后添加新的内容。a是往下添加，i是往上添加
+[root@centos6 tmp]# sed '/ONBOOT/c\ONBOOT=no' ifcfg-eth0 
+直接使用c来修改某一行内容
+[root@centos6 tmp]# sed -i '/BOOT/a\ONBOOT=yes' ifcfg-eth0 
+使用参数-i表示直接在源文件中进行修改
+[root@centos6 tmp]# sed '/^BOOT/{=}' ifcfg-eth0 
+定义关键词属于哪一行，{=} 指定行号
+[root@centos6 tmp]# sed '/^BOOT/{n;s/yes/no/}' ifcfg-eth0 
+n表示读取下一行，首先找出^BOOT内容行，然后读取下一行修改
+
+注：N表示多行模式空间，会读取模式空间的行后继续读取，并且不删除当前空间的行，如果使用N，^不再表示行的开头，$不再表示结尾，它们分别表示模式空间的开头和结束
+
+sed除了模式空间以外，还有一个保持空间的概念，其实就是缓存。使用模式空间时，创建一个副本，如果对模式空间操作，保持空间中的内容可以和模式空间互换
+
+awk  主要用来对文档进行排版，使用非常灵活，是shell脚本的又一个利器。
+cut -d： -f  4 /etc/passwd
+$0(当前行)  $1 $2 
+语法： awk ‘{range，command；command2}’  filename
+
+[root@centos6 tmp]# awk -F: '/^jarry/{ print $3 }' passwd 
+501
+[root@centos6 tmp]# awk -F: '$1~/jarry/{ print $3 }' passwd 
+
+[root@centos6 tmp]# awk 'BEGIN{FS=":"}$1~/jarry/{ print $1,$7}' passwd  
+
+2017/4/23  shell脚本
+./xx.sh   打开一个子shell执行脚本
+bash xx.sh    打开一个子shell执行脚本
+source xx.sh    在当前的shell中执行
+
+数值的比较
+中文              单词             字符
+等于              -eq               ==
+大于              -gt                >
+大于等于          -ge               >=
+小于              -lt                <
+小于等于          -le               <=
+不等于            ！-eq             !==
+判断1：test
+[root@centos7 tmp]# aa=5
+[root@centos7 tmp]# bb=15
+[root@centos7 tmp]# test ${aa} -lt ${bb}
+[root@centos7 tmp]# echo $?
+判断2：[ ]
+[ -f ]  判断文件是否存在
+[ -d ]  判断目录是否存在
+[ -r|w|x ] 判断读写执行权限
+[ -z ] 判断字符是否存在
+
+条件判断
+1、简单条件判断
+if  ； then
+fi
+2、一个条件判断，分成功和失败分别执行
+if  ； then
+else
+fi
+3、多条件判断
+if  ； then 
+elif  ；then
+else 
+4、case....esac
+case  变量  in
+      值1）
+	  命令；；
+	  值2）
+	  命令；；
+esac
+
+函数 function
+alias rm=“/tmp/sh”
+
+循环  while
+while  判断（满足）
+ do
+    XXX
+ done 
+实例：  
+  1 #!/bin/bash
+  2 nu=0
+  3 while [ ${nu} -lt 10 ] 
+  4 do
+  5         let nu++
+  6         echo ${nu}
+  7 done
+
+until不定循环（不满足条件循环）
+
+练习：
+写一个脚本统计目录中的文件数量
+写一个批量创建用户的脚本
+写一个统计系统中普通用户数量的脚本
+写一个脚本，判断系统中有哪些端口被开放
+
+远程系统管理与备份            
+ssh的使用
+telnet rlogin ssh ssh2
+[root@centos7 tmp]#ssh root@c6 
+[root@centos7 tmp]# scp xx.sh root@c6:~   远程拷贝
+rsync一般用于备份
+
+1、出于安全考虑，实际工作中很少使用账号密码（基于口令的认证）的方式登录ssh，更多的是通过密钥的方式
+2、更改ssh的默认端口
+3、禁止root登录
+
+A----B
+基于口令的认证：用户名 密码（短语）
+A希望和B连接，B发送公钥给A，A用B的公钥加密登录B的密码，B通过私钥验证A的信息，成功就可以放行
+基于密钥的认证：创建公钥和私钥
+A和B事先已经通过安全的方式获取对方的公钥，并且存放在本地。A希望和B建立连接， B会随机产生一个数字然后用A的公钥加密，再把这个信息发送给A，对比一致性。
+
+hydra  medusa  爆破工具  
+john 开膛手  破解hash的（shadow）
+ssh安全：
+1、密码尽可能强大 （大小写、数字、字母、特殊符号、短语、长度最好14位以上）
+2、修改默认端口号
+[root@centos7 ~]# vim /etc/ssh/sshd_config 
+3、禁止root登录
+4、查看日志  /var/log/btmp   这个日志记录了登录失败的信息，如果文件大小不断被放大，可能被爆破
+5、fail2ban
+
+
+系统备份：
+完整备份：备份所有的数据，同时将备份过的文件的属性进行标记，标记为备份.缺点：备份的数据随着时间的增长，会越来越庞大，耗时会越来越长，资源利用高  优点：数据恢复次数少，任何时间段的数据一次恢复
+差异备份：只备份自上一次完全备份后增长的数据，对已经有备份标记的文件不进行备份（也不清楚标记属性），对自身备份的文件也不进行标记。缺点：备份的数据随着时间增长，越来越庞大，耗时越来越长。
+增量备份：备份自上一次（完全备份、差异备份、增量备份）之后有变化的数据。备份后的文件打上标记。
+优点：备份的数据量小，备份速度快，资源利用率低
+缺点：数据恢复的次数由备份的次数决定，恢复的次数较多
+
+一个月做一次完全备份，每周做一次差异备份，每天做一次增量备份
+
+dump   专门用于针对ext日志式文件系统进行备份
+xfsdump  专门针对xfs日志式文件系统进行备份
+以上两个备份工具都是针对磁盘进行备份
+备份级别用数字表示，从0-9.
+0  完全备份
+从低往高表示增量备份
+从高往低表示差异备份
+
+[root@centos6 yy]# mkisofs -o winxp.iso *.dump winxp  
+制作镜像文件
+
+归档：cpio，也可以用来备份数据，这个工具自身并不知道需要备份的数据有哪些，一般都是和管理结合使用
+[root@centos6 yy]# find . -iname \*.dump | cpio -o > test.cpio
+参数o表示的打包，如果解包用i。
+[root@centos6 xx]# cpio -i  < test.cpio 
+解档
+
+2017/4/27  实时备份
+rsync （只传输差异变化） scp
+数据同步有两种方式：推 拉
+拉：从服务器端拉取数据，对服务器的开销很小，完全取决于客户端的操作，不能真正做到同步，非实时。传输速率慢
+推：服务器的开销大，但因为主动方是变化端，所以可以做到同步。
+rsync参数：
+-a  归档模式
+[root@centos7 xx]# rsync  -azP root@192.168.24.240:/tmp/xx vmware-root/ 
+从服务端拉取/tmp/xx目录下的所有文件
+
+inotify 是内核2.6以后自带的一个机制，提供了对文件的事件的监控，比如文件的修改，删除，添加，属性的调整。
+[root@centos7 tmp]# ll /proc/sys/fs/inotify/
+max_queued_events     最大的监控队列
+max_user_instances    最大的实例
+max_user_watches      每个用户实例最多监控的文件数量
+[root@centos7 tmp]# sysctl -p   将修改写入/etc/sysctl.conf文件中
+[root@centos7 tmp]# inotifywait -mrq -e move,create,delete,modify test/    对目录test产生的事件进行监控，事件有移动，创建，修改和删除。
+实时同步脚本：
+ 21 SRC=/tmp/test/
+ 22 DST=root@c6:/tmp/xx
+ 23 inotifywait -mrq -e move,create,delete,modify ${SRC} |while read line 
+ 24 do
+ 25         rsync -azP --delete ${SRC} ${DST}
+ 26 done
+
+监控脚本
+ 19 pgrep minitor.sh
+ 20 if [  $? !=  0 ] ;then
+ 21          /tmp/test/minitor.sh
+ 22 fi 
+
+磁盘配额
+ntfs
+[root@centos6 tmp]# mount -o usrquota,grpquota /dev/sdb2  xx/
+磁盘配额功能必须在挂在前赋予
+[root@centos6 xx]# quotacheck -cug /dev/sdb2 
+创建基于用户和组的配额数据库
+[root@centos6 xx]# quotaon -u /dev/sdb2 
+针对用户激活配额功能 
+[root@centos6 xx]# warnquota   打开邮件告警功能
+
+2017/05/02  RAID
+廉价磁盘冗余阵列   1987年 伯克利大学 
+优点：提高读写性能；容错性好；更有效的利用磁盘空间；提升服务器的整体性能
+
+硬阵列：hard   通过阵列卡实现
+软阵列：soft   通过软件实现
+lun 逻辑单元号：地址编号，系统通过这个编号可以找到相应的物理设备
+
+EMC NETAPP 华为  曙光（长虹）
+
+去I（ibm）O（oracle）E（emc）  sun mysql  java xfs 
+
+RAID0:将数据分块后按序写入各个磁盘。所有的I/O是平均分配给各个物理磁盘的，性能是所有阵列中最好的。缺点：一个硬盘的损坏，会导致所有数据的丢失，造成灾难性的故障。所有阵列中安全性最低，通常不建议使用。
+应用场景：需要高带宽的应用、图像编辑等
+
+RAID1：将两块硬盘当成一块硬盘使用。优点：对磁盘进行了冗余。缺点：磁盘利用率低。
+应用场景：财务、个人用户（金融）
+
+RAID4：至少需要三块磁盘才能实现。数据分别按序放入前两块磁盘中，第三块磁盘作为校验盘，对前两个磁盘中的数据进行校验并存放。所以第三块磁盘（校验盘）就是热点。
+
+RAID5：至少需要三块磁盘，采用分布式的校验，将校验盘平均分布在阵列组中的每块磁盘设备上，在相邻的条带间循环分布。优点：读写性能好，有冗余功能，磁盘利用率75%。缺点：同时两块硬盘损坏
+应用场景：服务器
+
+RAID6：最少需要4块硬盘实现。使用多种分布存储的校验方式实现，是raid5的一种扩展方式。通常都是带有两种校验方法。优点：可靠性高，允许多块硬盘故障。读性能好，写性能一般。缺点：磁盘利用率低于raid5。
+
+RAID10：先进行raid1，将raid1后的磁盘阵列后再进行raid0。优点：冗余性能好，写性能高于raid5，读性能好。缺点：磁盘利用率低，部署成本高。
+应用场景：适合有大量数据存储要求高速读写的场合
+
+实例：
+[root@centos6 ~]# cat /proc/mdstat   查看当前是否存在阵列
+[root@centos6 ~]# mdadm -C /dev/md0 -a yes -l 5 -n 3 -x 1 /dev/sd{b,c,d,e}
+参数C表示创建，-a表示是否启用标准化的名称（标准名称为md0等），-l表示使用哪种阵列，-n表示使用的硬盘数量，-x表示是否启用热备盘。
+[root@centos6 ~]# mdadm -D /dev/md0   查看阵列的属性，创建成功后会出现一块新的硬盘，名称按事先定义
+[root@centos6 ~]# mdadm -E /dev/sdb  查看某一块硬盘在阵列中的角色
+[root@centos6 test]# mdadm  /dev/md0 -f /dev/sdb  调试模拟阵列中的某一块硬盘故障
+[root@centos6 ~]# watch -n 0.5 'cat /proc/mdstat'  监控
+[root@centos6 test]# mdadm /dev/md0 -r /dev/sdb  将故障盘热移除
+[root@centos6 test]# mdadm /dev/md0 -a /dev/sdb  添加新的磁盘到阵列中
+删除阵列步骤
+[root@centos6 tmp]# umount /dev/md0   卸载使用中的阵列
+[root@centos6 tmp]# mdadm -S /dev/md0   停止阵列
+[root@centos6 tmp]# mdadm -A /dev/md0  /dev/sd{b,c,d,e}
+重新恢复阵列
+
+2017/05/04  LVM逻辑卷
+只属于类unix系统
+
+pv  物理卷
+vg  卷组
+PE  卷组的大小是由PE组成的，PE也是vg的最小单位，默认大小是4M
+lv  逻辑卷
+
+[root@centos6 ~]# pvscan   查看当前是否有物理卷存在
+[root@centos6 ~]# pvcreate /dev/md0p{1,2,3,4}  创建pv，这里使用阵列中的4个分区来创建（可以理解为真实环境中使用了4块硬盘）
+[root@centos6 ~]# vgscan   查看当前是否存在卷组
+[root@centos6 ~]# vgcreate vg0 /dev/md0p{1,2,3}   创建卷组，如果使用参数-s，后面跟上pe的大小，可以指定pe大小来划分。（比如 -s 16）
+[root@centos6 ~]# lvcreate -n lv0 -L 1000M vg0   创建逻辑卷，如果希望添加LE的数量，使用-l参数。（比如 -l 25，表示添加25个4M大小pe）
+[root@centos6 ~]# lvextend -l +115 /dev/vg0/lv0   扩展逻辑卷lv0的大小，扩展的数量是添加115个PE。
+[root@centos6 ~]# resize2fs /dev/vg   激活扩展的逻辑卷
+[root@centos6 test]# vgextend vg0 /dev/md0p4  扩展卷组的大小，前提是有足够的物理卷
+
+逻辑卷的缩小非常有讲究，必须严格按照下面步骤操作（实际工作中不使用缩小方式，容易造成数据丢失）：
+[root@centos6 ~]# umount /dev/vg0/lv0   卸载
+[root@centos6 ~]# e2fsck -f /dev/vg0/lv0   执行磁盘校验
+[root@centos6 ~]# resize2fs /dev/vg0/lv0 1950M  设置调整后的大小
+[root@centos6 ~]# lvreduce -l -265 /dev/vg0/lv0 减去逻辑卷的大小
+[root@centos6 test]# lvcreate -n sn -L 400M -s /dev/vg0/lv0   创建快照snapshot，参数-s表示快照，快照是挂载使用 
+[root@centos6 test]# lvremove -f /dev/vg0/sn   删除快照
+
+
+计划任务
+1、at 一次性任务  （atd）
+at now + 12minutes 
+at 10am tomrrow
+at 6am + 3days
+vim /etc/at.allow
+vim /etc/at.deny 
+
+2017/05/07  
+crontab   周期性、循环往复执行的计划任务
+[root@centos6 ~]# crontab -l -u tom  查看特定用户是否存在计划任务
+[root@centos6 ~]# crontab -e  设置当前用户的计划任务
+[root@centos6 cron]# pwd     
+/var/spool/cron   这个目录下记录的就是用户的计划任务文件
+#分钟 小时  天    月     周    命令
+*      *     *     *      *    /usr/bin/echo hello
+#每天早晨7点执行一个
+0      7     *     *      *    /usr/bin/bash xx.sh
+#每个工作日凌晨2点执行脚本任务
+0      2     *     *     1-5   echo xxx
+#每天凌晨3点到3点半每隔5分钟执行一次任务
+0-30/5 3     *     *      *    echo xxx
+#在2月开始1号到10号以及15号每天9点45执行任务
+45     9  1-10,15  2      *    echo  xxx
+#凡是满31的月从1号到10号，以及15号的晚上8点25和非工作日执行
+25    20   1-10,15  1,3,5,7,8,10,12  6,7   echo xxx
+0     *    *    *    *   /etc/init.d/sshd restart
+
+[root@centos6 cron]# vim /etc/cron.deny   将tom用户放入黑名单，tom不再具备使用crontab的权限
+[jarry@centos6 ~]$ vim /etc/cron.allow  使用白名单，默认不存在，手动创建
+
+[root@centos6 ~]# cat /var/spool/anacron/cron.daily 
+查看最近一次哪一天执行的anacron
+
+
+Daemons 系统服务
+守护进程 
+独立的：每一个服务会自己监听自己的端口，比如web服务器就会有一个进程监听自身的80端口
+非对立：super daemon 通常都是由xinetd统一管理
+端口：/etc/service    1-1024以下都是常用端口
+
+[root@centos6 init.d]# yum install xinetd   安装xinetd，用它来管理其他的不具备守护进程的服务
+[root@centos6 init.d]# cd /etc/xinetd.d/   非独立服务存放路径
+每一个daemons都有一个配置文件，daemons的启动会根据配置文件中的设定来执行，所以每次修改完配置文件如果希望daemons按需求执行，需要重启服务。同样，xinted也是一个daemons，它的配置文件在/etc/xinetd.conf
+[root@centos6 ~]# vim /etc/xinetd.conf   配置xinetd
+
+      cps             = 50 10   同一秒内最多允许50个链接，如果超过，对外服务暂停10s
+        instances       = 50
+		同一个实例最大链接数50个
+        per_source      = 10
+同一个来源最多10个
+
+tcpwrapper防火墙
+[root@centos6 ~]#ls /etc/hosts.    
+hosts.allow  hosts.deny 
+allow提供的是白名单，deny提供的是黑名单
+in.telnetd: 192.168.24.4:spawn wall "xxxxxxxxx"  
+匹配成功后执行spawn后的指令
+
+in.telnetd: 192.168.24.4:twist wall "xxxxxxxxx"
+twist的语法不能放在allow名单中，因为twist是匹配成功后立即终止并执行twist后的指令
+
+2017/05/09  日志服务器
+1、日志服务器
+rsyslog替代了syslog（默认集成）
+[root@centos6 ~]# cat /var/log/dmesg   查看内核启动
+[root@centos6 ~]# cat /var/log/maillog  查看邮件的日志
+[root@centos6 ~]# cat /var/log/messages  记录系统服务日志
+[root@centos6 ~]# cat /var/log/cron  显示所有计划任务的日志
+[root@centos6 ~]# cat /var/log/secure  查看用户登录信息
+[root@centos6 ~]# cat /var/log/btmp  记录所有登录失败的信息
+[root@centos7 ~]# systemctl restart rsyslog.service 
+
+日志服务器的配置
+[root@centos7 ~]# vim /etc/rsyslog.conf 
+标准格式：
+事件.级别                日志记录的位置            
+
+事件分类:
+authpriv   和认证有关的事件
+mail       邮件系统有关的事件
+cron       跟计划任务有关的事件
+kern       内核有关的
+syslog     日志服务有关
+news       跟新闻系统有关的事件
+daemons    跟守护进程有关的事件
+local0-local7    用户自定义事件
+
+级别：从高往低
+emerg  恐慌级别
+alert  紧急
+cirt   临界，有严重错误出现
+err    错误
+warning警告
+notice 需要关注
+info   提供所有信息（正常消息）
+debug  开发者使用的调试级别
+
+日志记录的规则
+*.info                    /var/log/test.log
+.=    前面的事件必须等于后面的级别才记录日志 
+.!    表示不等于，除了定义的级别以外的都记录
+
+[root@centos7 log]# vim /etc/rsyslog.conf   自定义日志
+local0.*                                 /var/log/ssh.log
+[root@centos7 log]# vim /etc/ssh/sshd_config   修改ssh的日志事件类型
+ 43 SyslogFacility local0
+重启服务生效
+
+日志的格式：
+May  9 19:09:07 centos7 sshd[14114]: Server listening on 0.0.0.0 port 22.
+datetime
+hostname
+server[pid]
+action
+
+[root@centos7 log]# tailf debug.log  实时查看日志
+[root@centos7 log]# journalctl  -p  emerg  只查看和恐慌级别有关的日志
+[root@centos7 log]# journalctl  --since today  只查看和今天有关的日志
+[root@centos7 log]# journalctl --since "2017-05-01" --until today
+查看特定时间段的日志
+  
+2、中央日志服务器
+客户端配置如下：@@表示tcp连接，@表示udp连接
+local5.debug             @@192.168.24.240:514
+服务器端开启：  如果修改默认的端口514，需要注意selinux
+$ModLoad imtcp
+$InputTCPServerRun 514
+
+3、日志备份
+
+/var/log/messages   当前日志
+一周  messages3 
+/var/log/messages  新的
+一周  messages2
+/var/log/messages  新的
+一周  messages1
+/var/log/messages  新的
+
+ logrotate   这个是系统预装的日志轮循工具
+[root@centos7 ~]# vim /etc/logrotate.conf   日志轮循配置文件
+ 35 /var/log/messages {     定义要求回滚的日志
+ 36     weekly          每一周轮循一次，可以用size=10M
+ 37     rotate 4        保留4份，第五份开始删除时间最久的那份
+ 38     compress        要求归档时用gzip压缩
+ 39     delaycompress   延时压缩，对当前的最近的要轮循的日志不压缩
+ 40     missingok       如果日志不存在忽略
+ 41     notifempty      如果日志为空不轮循
+ 42     create 0664 root root   轮循后生成新的日志
+ 43     postrotate       这个参数和endscript是一个整体，它们中间可以跟上指令，下面的指令表示在轮循完成后重启rsyrlog
+ 44         /usr/bin/killall -HUP rsyslog   
+ 45     endscript                
+ 46 }  
+
+4、日志分析
+AIDE    yum install aide  -y      
+aide  -i  
+aide  --check  
+logwatch  perl写的一个开源的日志分析工具，它主要是可以很方便的实现对日志的摘要，但它不是用来实时监控的。
+[root@centos7 ~]# vim /etc/logwatch/conf/logwatch.conf  主配置文件
+
+2017/05/11  网络配置
+NetworkManager  图形化网络管理daemons
+[root@centos6 ~]#  /etc/sysconfig/network-scripts/ifcfg-eth0   网卡的配置文件
+centos6中对服务的开启自动启动控制通过命令chkconfig
+[root@centos6 ~]# chkconfig --list  NetworkManager 
+查看这个daemons在什么级别下会自动启动
+[root@centos6 ~]# chkconfig NetworkManager off
+在当前级别下关闭此服务
+注：bash-completion 这个可以实现tab补全，系统最小化安装需要自己安装这个包
+centos7中设置服务开机不自动启动
+[root@centos7 ~]# systemctl disable  NetworkManager
+通过mask可以将服务锁住
+[root@centos7 ~]# systemctl mask  NetworkManager
+centos中命令行网络配置：
+[root@centos6 ~]# ifconfig lo 1.1.1.1 netmask 255.255.0.0 up
+[root@centos6 ~]# ip addr  查看网卡信息
+[root@centos6 ~]# ip link show lo
+查看网卡的二层信息
+[root@centos6 ~]# ip addr show lo
+查看网卡三层信息
+注：在centos7中，如果是最小化安装，默认是没有ifconfig指令的，只有ip addr。需要安装net-tools工具包
+[root@centos6 ~]# ifdown lo
+关闭网卡，开启使用ifup 
+[root@centos6 ~]# ip link set lo down
+二层关闭网卡
+[root@centos6 ~]# ip addr add 192.168.1.1/24 dev lo label lo:1
+配置一块网卡多个ip
+[root@centos6 ~]# ifconfig lo:2 192.168.3.3  netmask 255.255.255.0 up
+
+注：命令行下的所有操作都是临时有效，如果希望永久生效，需要修改配置文件
+[root@centos6 ~]# route add default gw 192.168.24.254
+添加网关
+
+[root@centos6 ~]# tcpdump -i eth0
+网卡抓包
+[root@centos6 ~]# tcpdump -i eth0 src host 192.168.24.4 and dst host 192.168.24.240 
+下载工具：wget、lrzsz
+dns查询：nslookup
+字符化浏览器：elinks
+
+rhel7命令行网络配置
+[root@centos7 ~]# nmcli connection show --active
+查看当前活跃的网卡所有名称信息
+[root@centos7 ~]# nmcli connection show eno16777736 
+查看网卡的所有信息
+
+
+[root@centos6 ~]# vim /etc/sysconfig/network
+修改主机名，配置文件中的修改事永久生效的
+[root@centos7 ~]# vim /etc/resolv.conf 
+设置dns信息
+[root@centos7 ~]# vim /etc/hosts
+本地解析
+
+桥接：
+[root@centos7 ~]# yum install bridge-utils bash-completion-extras -y
+安装桥接和补全工具
+[root@centos7 ~]# brctl show 
+查看当前的网桥设备
+[root@centos7 ~]#brctl addbr br0 添加一个名为br0的网桥设备
+[root@centos7 ~]#brctl addif br0 eno16777736 将物理网卡连接到网桥设备
+[root@centos7 network-scripts]# vim ifcfg-br0  修改网桥配置文件
+  1 TYPE=Bridge
+  4 NAME=br0
+  5 DEVICE=br0
+  6 ONBOOT=yes
+ 
+[root@centos7 network-scripts]# vim ifcfg-eno16777736  修改物理网卡配置，添加桥接功能
+  1 TYPE=Ethernet
+  2 BOOTPROTO=dchp
+  3 NAME=eno16777736
+  4 ONBOOT=yes
+  5 HWADDR=00:0C:29:6B:C0:3A
+  6 BRIDGE=br0
+
+2017/05/16 链路聚合
+链路备份  activebackup
+负载均衡  loadbalance 
+轮循      roundrobin  
+[root@centos7 ~]# nmcli connection show  查看当前网卡的信息
+[root@centos7 ~]# nmcli connection add type team con-name  team0 ifname team0 config '{"runner":{"name":"loadbalance"}}'
+通过nmcli创建一块虚拟网卡，虚拟网卡的类型是链路聚合，名称是team0，然后通过json定义使用的模式是负载均衡
+[root@centos7 ~]# nmcli connection modify team0 ipv4.address ‘ip 网关 ’
+[root@centos7 network-scripts]# nmcli connection add type team-slave con-name team-port1 ifname eno16777736 master team0 
+定义类型为链路聚合组中的从设备类型，将名为eno16777736的网卡添加到主设备team0中，并生成名为team-port1的配置文件
+[root@centos7 ~]# teamdctl team0 state   查看链路聚合网卡的状态
+  1 NAME=team-port1
+  2 BOOTPROTO=none
+  3 DEVICE=eno16777736
+  4 ONBOOT=yes
+  5 TEAM_MASTER=team0
+  6 DEVICETYPE=TeamPort                    
+网络环境设置
+vim /etc/udev/rule.d/70-persistent-net.rules   这个文件定义了网络设备命令的规则以及相关的信息制定
+[root@a ~]# route add default gw 10.0.0.1  添加默认网关
+
+[root@b ~]# route add -net 30.0.0.0/24 dev eth1  添加路由，代表如果要去往目的30.0.0.0网段，数据包走eth1
+
+[root@c6 ~]# iptables -F 临时关闭防火墙
+[root@c7 ~]# firewall-cmd set-default-zones=trusted   放行所有
+
+如果希望配置永久生效
+开启ipv4转发
+[root@centos6 ~]# vim /etc/sysctl.conf 
+[root@centos6 ~]# sysctl -p  不重启生效
+[root@centos6 network-scripts]# vim route-eth1  配置路由永久生效
+30.0.0.0/24  via 20.0.0.2 dev eth1
+
+开源路由方案：openwrt、routeros
+
+2017/05/18
+防火墙:
+硬件防火墙--数据包过滤
+软件防火墙--tcpwrapper\iptables\ebtables\firewalld
+
+包过滤防火墙技术：在网络层对数据包进行筛选（过滤），通过ACL。
+代理服务防火墙技术，典型的就是链路级的网关。反向代理技术就是如此，典型的应用就是Nginx。
+
+linux内核级别直接实现防火墙功能。
+iptables就是依赖的netfilter
+rhel7中使用的firewalld依然依赖的是netfilter，但是管理工具使用firewall-cmd
+
+iptables直接由内核驱动运行，编写规则也是从上往下，并且一旦匹配某一条目，就不再往下匹配，不同服务之间规则互不影响。
+iptables 表（table）
+表分为filter表和nat表
+[root@centos6 ~]# iptables -t nat -L -n  查看nat表的规则。参数t是table的意思，参数L是列表的意思。参数n是禁止反向解析。
+[root@centos6 ~]# iptables  -L -n
+不指明查看的表，默认就是filter表。
+
+iptables 链（chain）
+filter表的三条链：
+INPUT    进入的数据
+FORWARD  转发的数据
+OUTPUT   出去的数据
+nat表的三条链：
+PREROUTING  目的地址转换
+POSTROUTING  源地址转换
+OUTPUT   防火墙自身访问时是否转换
+
+iptables中filter表的语法：
+[root@centos6 ~]# iptables -t filter  \
+> -A|D|I   \   添加|删除|插入
+> INPUT|OUTPUT|FORWARD      \ 指定链
+> -p tcp|udp|icmp    \ 指定协议
+> -s 1.1.1.1/24   -d 2.2.2.2/24  \
+源地址和目的地址
+> --sport m:n --dport m:n   \
+源端口和目的端口
+> -j ACCEPT|REJECT|DROP|LOG  执行动作，允许|拒绝|丢弃|记录
+
+rhel7--firewalld
+rhel7中默认开启的是firewalld，另外还可以使用iptables，或者ebtables。
+为了防火墙之间的冲突，将不使用的彻底禁用。
+[rot@rhel7 ~]# systemctl stop ebtables.service  关闭ebtables
+[rot@rhel7 ~]# systemctl disable ebtables.service   禁止开机启动
+[root@rhel7 ~]# systemctl mask ebtables.service   禁用ebtables
+
+firewalld 有两种状态，一种是runtime，一种是permanent。runtime是默认状态，在这个状态下做的设置，立即生效，但服务或服务器一旦重启，失效。
+permanent状态是永久生效的，但在这个状态下做的配置必须在服务或者服务器重启后才会永久生效。
+
+firewall的中添加了区域的概念：
+drop区域提供最严格的策略，丢弃所有
+block区域提供和drop一样的策略，但是会给出提示信息
+trusted区域提供最宽松的策略，放行所有
+public是默认的策略
+针对不同的区域提供不同的默认策略，可以针对services（具体服务）、ports端口、nat、端口映射、icmp过滤以及富规则进行设置。
+[root@rhel7 ~]# firewall-cmd --set-default-zone=public 
+设置默认区域
+[root@rhel7 ~]# firewall-cmd --get-default-zone 
+查看当前默认区域
+
+[root@rhel7 ~]# firewall-cmd  --add-rich-rule='rule family=ipv4 service name=vnc-server source address=1.1.1.1 reject'
+添加富规则
+[root@rhel7 ~]# firewall-cmd --add-forward-port port=80:proto=tcp:toaddr=20.0.0.2:toport=80
+添加端口转发
+
+
+通过gnupg加密保护文件
+10101010101   
+01010101010
+abcdefghijklmopqrstuvwxyz
+ abcdefghijklmopqrstuvwxyz
+ 
+对称加密：DES、3DES、AES、RC5
+原始数据：01000001
+公    钥：10101010
+XOR运算： 00010100
+优点：快，加密效率高，解密性能好
+缺点：密钥配送问题，如果安全传递公钥
+典型应用：wep
+
+非对称加密：RSA
+rsa  公钥  私钥
+密文=明文的E次方除以N，得到的余数就是密文
+明文=密文的D次方除以N，得到的余数就是明文
+以上公式中E和N的结合就是公钥，D和N的结合就是私钥。
+n=q*p  
+l=（-1，p-1）
+ECC 比RSA的密钥长度更短，但是安全性更高。
+应用场景：ssh  https  
+优点：安全性高
+缺点：性能差，开销很大，存在中间人攻击。
+
+混合算法：对称+非对称
+对称加密算法加密消息
+用非对称算法传递对称加密算法中的会话密钥
+
+数字签名
+单向散列函数 md5  sha1 sha256 sha512
+消息认证码MAC：
+发送方和接收方预共享密钥
+发送发加密预共享密钥（用消息认证码加密）
+接收方收到后也进行同样操作，并对比两人的结果是否一致
+
+数字签名过程：公钥和私钥
+发送方用单向散列函数加密消息
+发送方对私钥对得到的散列值加密，最终得到签名
+接收方用发送方的公钥对签名进行解密
+接收方将解密后的散列和发送方发送的消息进行比对
+
+[root@centos6 ~]# cd ~/.gnupg/
+这个目录下存放了公钥和私钥
+
+2017/05/25
+BOOTPROTO--DHCP 
+使用UDP协议通信，端口是67和68
+dhcp discovery  客户端向服务器端发起的，用于查询dhcp服务器的位置，服务器端的67号端口用来监听此类包
+dchp offer 是服务器端通过68号端口向客户端发起的响应
+dchp request 是客户端向服务器端发起的请求，要求确认使用具体的ip等信息的。使用广播方式，如果存在其他的dhcp服务器，在收到这个广播包后，知道客户端已经选择了dhcp，会撤回前面发出的offer的信息。
+dhcpack 这个是服务器端对客户端的信息的请求的回复。
+dhcpnak  服务端发送给客户端，通常是因为地址过期或者无效
+dchpdecline  客户端发送给服务器端，通常是地址被占用
+dchpinfrom  客户端向服务器端申请参数
+
+[root@centos6 ~]# yum install dhcp -y  安装dhcp服务
+[root@centos6 ~]# iptables -I INPUT 1 -p udp --dport 67 -j ACCEPT
+[root@centos6 ~]# iptables -I INPUT 1 -p udp --dport 68 -j ACCEPT
+[root@centos6 ~]# service iptables save
+[root@centos6 ~]# cp /usr/share/doc/dhcp-4.1.1/dhcpd.conf.sample /etc/dhcp/dhcpd.conf   生成配置文件
+作用域格式：
+subnet ip netmask {       
+ 中间写这个作用域的信息  
+   }
+
+[root@centos6 ~]# cat /var/lib/dhclient/dhclient-eth0.leases  在客户端上可以查看dhcp的租约等数据信息
+
+
+超级作用域格式：
+shared-network 11-22 {
+	subnetsubnet ip netmask {       
+ 中间写这个作用域的信息  
+   } 
+   subnet ip netmask {       
+ 中间写这个作用域的信息  
+   }
+   subnet ip netmask {       
+ 中间写这个作用域的信息  
+   }
+
+}
+
+2017/06/01   DNS服务器
+Domain name server  实现的是主机域名和ip的映射
+dns  udp协议   端口53   tcp协议 
+工作方式：递归和迭代
+www.baidu.com.
+主机名.三级域名.二级域名.顶级域名.根域
+
+dns的递归查询：客户端--服务器
+13台根域服务器  A-M 
+dns的迭代查询：服务器--服务器
+
+rhel6中的named
+1、服务器的安装（chroot）
+[root@RA ~]# yum install bind bind-chroot -y
+安装dns服务器了，出于安全考虑，我们同时安装chroot用来隔离环境。主要是防止渗透者在攻破dns服务器后在真实根目录下的一些操作。
+注：默认情况下dns服务器的主配置文件是/etc/named.conf，数据文件在/var/named/目录下。但是，因为我们使用了chroot隔离，所以，默认的文件我们都不使用。chroot后的根是/var/named/chroot
+
+[root@RA ~]# service named restart  重启服务后chroot下面的配置文件会自动生成
+[root@RA ~]# vim /var/named/chroot/etc/named.conf 
+查看配置文件
+ 10 options {
+ 11 //从这里开始就是全局的设置,默认只监听自己的，改为监听所有
+ 12         listen-on port 53 { any; };
+ 13         listen-on-v6 port 53 { ::1; };
+ 14 //区域文件存储路径，因为做了chroot，这里的/其实是/var/named/chroot
+ 15         directory       "/var/named";
+ 16 //往下三行内容都是进行统计的
+ 17         dump-file       "/var/named/data/cache_dump.db";
+ 18         statistics-file "/var/named/data/named_stats.txt";
+ 19         memstatistics-file "/var/named/data/named_mem_stats.txt";
+ 20 //允许谁进行DNS查询
+ 21         allow-query     { any; };
+ 22 //是否允许dns转发，理解为我们就是一台从dns服务器
+ 23 //        allow-transfer  { none; };
+ 24 //是否允许递归查询
+ 25         recursion yes;
+ 26 
+ 27 //      dnssec-enable yes;
+ 28 //      dnssec-validation yes;
+ 29 
+ 30         /* Path to ISC DLV key */
+ 31 //      bindkeys-file "/etc/named.iscdlv.key";
+ 32 
+ 33 //      managed-keys-directory "/var/named/dynamic";
+ 34 };
+
+ 
+ zone "google.com" IN {
+        type master;
+        file "google.com.zone";
+};
+
+[root@RA etc]# named-checkconf 
+检测配置文件语法错误，一定要通过语法检测，否则重启服务会导致chroot中的所有配置文件丢失
+
+[root@RA named]# cp named.localhost google.com.zone
+拷贝模板生成指定域的配置文件
+
+[root@RA named]# chown root.named google.com.zone 
+保证新的区域数据文件的所有者和所属组和系统一致
+
+DNS服务器配置中的类型：
+NS--   name server
+A --   address
+PTR--  反向记录
+CNAME--别名
+MX--email
+
+
+$TTL 1D
+@       IN SOA  dns.example.com.  root (
+                                        0       ; serial
+                                        1D      ; refresh
+                                        1H      ; retry
+                                        1W      ; expire
+                                        3H )    ; minimum
+        NS      dns.example.com.
+dns     A       192.168.4.137
+www     A       92.8.4.128
+wap     CNAME www
+ftp      A       192.168.4.137
+[root@RA named]# named-checkzone  example.com example.com.zone  检测域文件的语法 
+ 
+[root@centos6 ~]# host wap.example.com   客户端解析域名
+
+[root@centos6 ~]# host -l  example.com  解析域名中的所有主机
+
+反向解析：在named.conf文件中添加
+zone "4.168.192.in-addr.arpa" IN {
+        type master;
+        file "example.com.arpa";
+};
+[root@DNS named]# cp -rp example.com.zone example.com.arpa  生成反向解析的文件
+
+主从DNS服务器
+为了保证服务的高用性，要求每个区域中有多台dns能提供冗余服务。
+从服务器上同样安装bind 的工具包，然后在主配置文件中修改如下
+zone "example.com" IN {
+        type slave;
+        file "slave/example.com.zone";
+        masters { 192.168.4.137; };
+};
+
+这里数据文件要放在slave目录下。masters是定义的主dns服务器
+
+在主dns服务器上添加如下内容：
+        allow-transfer  { 192.168.4.139; };
+指定授权的从dns服务器
+
+
+
+为了防止主从dns之间被第三方拦截同步信息，可以使用TSIG事务数字签名认证
+[root@DNS chroot]# dnssec-keygen -a HMAC-md5 -b 128 -n HOST hf
+使用工具生成一对密钥。一个是key，一个private
+在主服务器的配置文件中添加如下
+  allow-transfer  { key hf ; };
+
+server 192.168.4.139 {          //这个地址是从的
+        keys { hf ; };
+};
+key  hf { algorithm  hmac-md5;
+          secret RJR+CvADx1dMjJ7pNdNisw== ;
+};
+
+
+在从服务器上做同样的配置
+server 192.168.4.137 {          //这个地址是主的
+        keys { hf ; };
+};
+key  hf { algorithm  hmac-md5;
+          secret RJR+CvADx1dMjJ7pNdNisw== ;
+};
+
+基于视图的DNS解析
+
+2017/06/06  NTP服务器
+1884年  国际子午线
+格林威治  英国   GMT
+原子钟
+UTC 协调世界时
+夏令时
+win操作系统默认使用的是UTC时间
+linux系统默认使用的是bios时间（晶震电路）
+RHEL6中的NTP服务器
+[root@DNS ~]# service ntpd status   查看服务器状态
+[root@DNS ~]# service ntpd restart   重启ntp服务器
+[root@DNS ~]# cat /etc/sysconfig/clock   查看当前时区
+[root@DNS ~]# vim /etc/ntp.conf 
+
+ restrict default kod nomodify notrap nopeer noquery
+权限  默认
+kod 是不接受kod的包，错误发送的包，容易被利用为ddos攻击包
+nomodify 不接受客户端发起的修改ntp参数的请求
+notrp  不接受trap陷阱包，trap包是可以远程调用日志的
+nopeer  上下级的ntp关系断开，下级ntp服务器不能请求同步
+noquery  客户端不允许发送ntp请求
+
+备注：具体配置查看相关服务配置文件
+[root@DNS ~]# chkconfig ntpd on   重启服务后设置开机启动
+
+[root@DNS ~]# ntpstat  查看当前ntp服务器的状态
+synchronised to NTP server (51.15.41.135) at stratum 3 
+   time correct to within 427 ms
+   polling server every 64 s
+
+[root@DNS ~]# ntpq -p   linux客户端可以查看和上层ntp服务器的连接
+
+昨天实验中出现的一些问题以及可能出现的问题汇总：
+1、xp连接失败，报错时间例子被拒绝，对等机器太少。
+这个查阅了文档，发现是昨天设置的时间拉的太长导致。xp的时间差尽量不要大于24小时以上。另外，xp和ntp的连接需要15分钟左右。所以可以耐心等待一段时间，我后面看了下，一段时间后它自己连上了。
+2、ntpdate手动同步时报错，socket被连接占用
+ntpdate时如果ntpd服务器开启情况下会冲突，需要先停止ntp服务器。另外ntpdate建议在ntp启动前运行一次就可以，不要经常运行。它可能会引起时间的跳跃，让时间不按线性流动，造成一些特定程序的bug。
+
+
+rhel7中的时钟服务器 chrony
+chronyd和chronyc
+chronyd是一个后台运行的守护进程，用于调整内核中运行的系统时钟和时钟服务器同步。它确定计算机增减时间的比率，并对此进行补偿。
+chronyc用来实现监控和配置
+优点是比ntpd在时钟的弥补上更先进，同时在时钟的准确率上有改进，同步上也更加精确。
+
+[root@centos7 /]# yum install chrony\*   安装
+[root@centos7 /]# systemctl enable chronyd    开机启动
+[root@centos7 /]# systemctl restart chronyd   重启
+[root@centos7 /]# systemctl status chrony   查看状态
+[root@centos7 /]# chronyc sources -v   查看和上层同步状态
+注：配置文件上传github
+
+2017/06/08  APACHE 
+apache    a patchy server 一个打满补丁的服务器
+tomcat 
+nginx
+IIS
+web  网站服务器 C/S 
+HTTP  端口80   daemons  httpd
+[root@DNS ~]# yum install httpd\* -y  安装apache
+[root@DNS ~]# vim /etc/httpd/conf/httpd.conf 
+apache的主配置文件
+
+基于htaccess的验证
+vim .htaccess
+AuthName xxxxxxxxxx
+AuthType Basic
+AuthUserFile /var/www/html/.htpasswd
+Require user tom
+               
+[root@DNS html]# htpasswd -c -m .htpasswd tom 创建一个密码文件
+
+然后修改主配置文件，对目录权限重新定义
+<Directory "/var/www/html/xx">
+    Options FollowSymLinks
+    AllowOverride Authconfig    主要修改这里
+    Order deny,allow
+    allow from all
+</Directory>
+
+基于主机名的虚拟主机--用户通过不同的域名访问不同的网站，用户访问的不同的网站其实存在于同一台主机。这些不同的站点在同一台服务器上，我们就叫虚拟主机。
+
+基于IP地址的虚拟主机--在同一台服务器上提供多个ip地址访问不同的域名
+[root@DNS ~]# ip addr add 192.168.24.5/24 dev eth0 label eth0:1
+[root@DNS ~]# ip addr add 192.168.24.6/24 dev eth0 label eth0:2
+在一块网卡上设置多个ip
+
+基于端口的虚拟主机
+
+
+在rhel7中如果修改了默认的http端口，除了防火墙要放行，开启selinux的情况下，还要修改端口的上下文
+[root@centos7 ~]# yum whatprovides semanage
+安装工具
+
+WEB的TLS
+SSL  网景  secure socket layer
+TLS 传输层安全   是一个国际标准 ，几乎所有涉及到金融的网站都会使用https，目前更多其他领域的网站也在加入https行列。 
+https的使用中RSA AES MD5 SHA，还包括证书。证书本身就是一对密钥（非对称算法，RSA或ECC）
+HTTPS的传输原理：
+1、客户端----服务器端
+向服务器端（web服务器）发起请求，请求中包含自身能够使用的加密算法或者压缩算法
+2、服务器----客户端
+如果服务器在收到的客户端的工具集中发现有自己无法使用的算法，那么拒绝连接。反之服务器端向对方发送自己可以使用的哪些算法，并把这些信息放在证书中发送给客户端（证书注册的时间、注册的机构、有效期、失效期以及网址等信息）
+3、客户端----服务器
+客户端收到这些信息后，首先判断证书的合法性。如果证书没有被授信，那么用户可以自己决定是不是要继续访问站点。如果证书合法，这时客户端生成一个随机数，用服务器证书中的公钥加密，这步是为了防止数据传输中被窃听。用前二次交流中确定的hash算法对消息做数字签名，一起发送给服务器端。
+4、服务器----客户端
+服务器端对收到的消息用私钥解密，获取随机数（密码），然后通过hash比对，判断消息的一致性。
+5、后面的连接客户端用随机数使用对称算法加密和服务器端进行数据传输。如果中间连接断开，那么重复上面的步骤。这个过程中，两边协商的对称加密的密码都只有双方知道了，不存在中间人攻击等可能。
+为什么要认证证书？
+整个传输过程中的加密算法和实现方式都是透明的，不存在任何秘密，也就意味着理论上任何人可以生成证书。
+有专门可信赖的第三方的证书认证机构，最顶层的叫root ca。
+
+[root@centos7 ~]# yum install mod_ssl  安装apache的ssl模块
+[root@centos7 ~]# vim /etc/httpd/conf.d/ssl.conf 
+配置ssl模块
+[root@centos7 conf]# cd /etc/pki/tls/certs/
+进入目录
+[root@centos7 certs]# make /etc/httpd/conf/test.crt
+生成证书
+
+
+针对特殊站点的认证
+
+
+web站点压力测试
+[root@DNS conf]# ab -n 20000 -c 10000 www.test.com/index.html
+
+[root@c7 ~]# yum install webalizer 用epel源安装
+[root@c7 ~]# vim /etc/httpd/conf.d/webalizer.conf 
+[root@c7 ~]# webalizer   启动
+
+2017/06/13  数据库
+oracle  甲骨文 
+mysql    SUN（oracle）  开源
+sqlserver 微软
+mariadb  （rhel7）  红帽收编了mysql的开发团队
+nosql  
+
+yum install mariadb\*   
+systemctl start mariadb.service 
+firewall-cmd --add-service=mysql
+mysql 登入数据库，默认以root@localhost身份登录，不同于root，这个身份只能本地登录。
+MariaDB [(none)]> select user();
+MariaDB [(none)]> select version()；
+MariaDB [(none)]> select engines
+MariaDB [(none)]> show databases;  查看当前mariadb中有哪些数据库
+[root@xxl ~]# vim /etc/my.cnf  数据库配置文件
+MariaDB [(none)]> system clear  在数据库中使用系统指令
+MariaDB [(none)]> \! clear  数据库中使用系统指令
+MariaDB [(none)]> create database rhel7;  创建名为rhel7的数据库
+MariaDB [(none)]> drop database rhel7;  删除数据库
+MariaDB [(none)]> create database rhel7 charset=gbk;
+指定编码创建数据库
+MariaDB [(none)]> alter database rhel7 charset=utf8;
+修改数据库的编码
+MariaDB [(none)]> use rhel7;  进入数据库rhel7
+MariaDB [rhel7]> show tables; 查看数据库里的表
+MariaDB [rhel7]> create table xx ( id int, name varchar(10), age int, email varchar(20));
+创建一张表
+MariaDB [rhel7]> desc xx; 查看表类型
+MariaDB [rhel7]> select * from xx;查询表中的内容，* 表示所有
+MariaDB [rhel7]> insert into xx  (id,name,age,email)  values(1,'tom',24,'tom@qq.com');
+向表中插入内容
+MariaDB [rhel7]> rename table xx to google; 改名
+MariaDB [rhel7]> select * from google where name='jarry';  搜索时加上条件，where是一个关键词，用来在前面的结果中去过滤
+MariaDB [rhel7]> alter table google drop age;
+删除某一列
+MariaDB [rhel7]> alter table google add phone int;
+添加一列
+MariaDB [rhel7]> alter table google add phone int(11) after name;
+指定列所在的位置
+MariaDB [rhel7]> select phone from bb where 
+    -> id=(select id from aa where name='bob');
+	通过表连接查询
+MariaDB [rhel7]> select * from aa join bb;
+通过多表查询，但通过这种方式获取的结果会产生笛卡尔积
+MariaDB [rhel7]> select * from aa join bb using(id);
+优化后的多表查询
+MariaDB [rhel7]> select phone from aa join bb using(id) where name='bob';
+多表查询bob的电话
+MariaDB [rhel7]> update bb set sal=4800 where id=2;
+更新bb表中id为2的sal列的值
+MariaDB [rhel7]> select count(*)  from  aa;
+统计aa表的row数值
+MariaDB [mysql]> select user,host,password from user;
+按指定的column查看表中的内容
+MariaDB [mysql]> select * from rhel7.aa
+
+为数据库设置密码
+MariaDB [mysql]> set password=password("redhat");
+[root@centos7 ~]# mysqladmin -uroot -p password 设置密码
+[root@centos7 ~]# mysql -uroot -hlocalhost -p 
+通过密码登录
+
+MariaDB [(none)]> update user set password=password("centos")  where host='localhost' and user='root';  更新系统密码
+MariaDB [(none)]> flush privileges;
+刷新缓存，让配置生效
+
+一、重置数据库密码：
+MariaDB [(none)]> update mysql.user set password=null;    清空数据库中的所有密码
+
+二、通过安全模式重置密码
+首先停止运行数据库
+[root@centos7 ~]# vim /etc/my.cnf
+ 10 skip-grant-tables
+让数据库进入安全模式
+
+使用命令增加数据库密码安全
+[root@centos7 ~]# mysql_secure_installation 
+
+设置数据库管理员
+MariaDB [mysql]> create user tom@localhost;  这种方式创建的用户只能本地登录
+MariaDB [mysql]> create user tom
+这个用户可以在任何地点登录
+MariaDB [mysql]> grant create on rhel7.aa to tom@'192.168.24.4' identified by 'tom';  赋权tom用户使用密码tom登录数据库rhel7下的aa表具有创建的权限
+MariaDB [mysql]> grant drop on rhel7.cc to tom@'192.168.24.4' ;
+赋权用户对数据库中的表具有删除的权限
+MariaDB [mysql]> revoke drop on rhel7.cc from tom@'192.168.24.4';
+从用户端收回权限drop，注意连接关键词是from
+
+数据库的备份和恢复
+[root@centos7 ~]# mysqldump  这个工具专门用来提供数据库的库和表的备份
+[root@centos7 ~]# mysqldump -uroot -p rhel7 aa > aa.bak
+使用重定向的方式完成备份，备份后的数据是用二进制表示的日志文件，如果不重定向，只会在终端输出。
+MariaDB [rhel7]> source /root/aa.bak
+恢复表
+[root@centos7 ~]# mysqldump -uroot -p rhel7 > rhel7.bak 
+备份数据库中的所有表
+[root@centos7 ~]# mysqldump -uroot -p rhel7 < rhel7.bak 
+恢复数据库
+
+
+3、安装并管理PHP环境
+①安装PHP
+[root@hf ~]# yum install php
+②安装PHP组件，使PHP支持 MariaDB
+[root@hf ~]#yum install php-mysql php-gd libjpeg* php-ldap php-odbc php-pear php-xml php-xmlrpc php-mhash
+③重启mariadb服务
+[root@hf ~]#systemctl restart mariadb
+
+4、配置Apache服务器
+①编辑apache配置文件
+[root@hf ~]#vim /etc/httpd/conf/httpd.conf
+ServerSignature On #添加，在错误页中显示Apache的版本，Off为不显示
+Options Indexes FollowSymLinks #修改为：Options Includes ExecCGI FollowSymLinks（允许服务器执行CGI及SSI，禁止列出目录） 
+AddHandler cgi-script .cgi #修改为：AddHandler cgi-script .cgi .pl （允许扩展名为.pl的CGI脚本运行） 
+AllowOverride None #修改为：AllowOverride All （允许.htaccess） 
+AddDefaultCharset UTF-8 #修改为：AddDefaultCharset GB2312 （添加GB2312为默认编码） 
+#Options Indexes FollowSymLinks #修改为 Options FollowSymLinks（不在浏览器上显示树状目录结构）
+DirectoryIndex index.html #修改为：DirectoryIndex index.html index.htm Default.html Default.htm index.php（设置默认首页文件，增加index.php） 
+MaxKeepAliveRequests 500 #添加同时连接数
+
+②重启apache服务
+[root@hf ~]# systemctl restart httpd
+
+③删除默认测试页面
+[root@hf ~]# rm -f /etc/httpd/conf.d/welcome.conf /var/www/error/noindex.html 
+
+2016/06/18
+LAMP服务器的部署--BBS
+L--linux    作为底层的操作系统
+A--apache   作为web的服务前端
+M--mariadb  数据库用来存储数据
+P--php/perl/python   编程语言
+
+
+1、安装apache并且配置
+2、搭建mariadb服务器并配置
+[root@centos7 ~]# cp /usr/share/mysql/my-huge.cnf /etc/my.cnf
+3、安装php
+yum install php php-mysql php-gd libjpeg* php-ldap php-odbc php-pera php-xml php-xmlrpc php-mahash 
+
+4、配置httpd
+129     Options INCLUDES ExecCGI FollowSymLinks
+#让服务器允许执行CGI等文件，禁止列出目录
+270     AddHandler cgi-script .cgi 
+#允许服务器执行后缀cig的脚本，可以添加其他的自定义脚本的后缀
+
+5、配置php
+[root@hf ~]#vim /etc/php.ini 
+date.timezone = PRC      #把前面的分号去掉，改为date.timezone = PRC 
+disable_functions = passthru,exec,system,chroot,scandir,chgrp,chown,shell_exec,proc_open,proc_get_status,ini_alter,ini_alter,ini_restore,dl,openlog,syslog,readlink,symlink,popepassthru,stream_socket_server,escapeshellcmd,dll,popen,disk_free_space,checkdnsrr,checkdnsrr,getservbyname,getservbyport,disk_total_space,posix_ctermid,posix_get_last_error,posix_getcwd, posix_getegid,posix_geteuid,posix_getgid, posix_getgrgid,posix_getgrnam,posix_getgroups,posix_getlogin,posix_getpgid,posix_getpgrp,posix_getpid, posix_getppid,posix_getpwnam,posix_getpwuid, posix_getrlimit, posix_getsid,posix_getuid,posix_isatty, posix_kill,posix_mkfifo,posix_setegid,posix_seteuid,posix_setgid, posix_setpgid,posix_setsid,posix_setuid,posix_strerror,posix_times,posix_ttyname,posix_uname
+#列出PHP可以禁用的函数，如果某些程序需要用到这个函数，可以删除，取消禁用。
+expose_php = Off #禁止显示php版本的信息 
+magic_quotes_gpc = On #打开magic_quotes_gpc来防止SQL注入 
+short_open_tag = ON #支持php短标签
+open_basedir =                   #写上程序的目录，定义为自己的目录
+
+[root@hf ~]#systemctl restart mariadb.service #重启MariaDB 
+[root@hf ~]#systemctl restart httpd.service #重启apache 
+
+6、测试
+[root@hf ~]# cd /var/www/html 
+[root@hf ~]#vim index.php #输入下面内容
+ <?php 
+phpinfo(); 
+?> 
+
+LEMP 
+L--linux
+N--nginx 俄罗斯
+M--mariadb
+P--php/perl/python
+
+1、安装nginx
+yum install nginx   通过epel源安装
+yum install php-fpm  
+systemctl restart php-fpm
+[root@centos7 nginx]# vim /etc/nginx/nginx.conf.default  #查看配置文件模板，复制65到71的内容，将这块内容写入的到nginx.conf文件中
+
+
+NFS服务器配置
+nfs是一种网络共享，它就是NAS的一种展示。和微软的文件共享概念是一样的，区别在于，它只能在类unix系统中使用（其实win也可以使用，不过性能并不是很稳定）
+DAS    直接连接存储 
+NAS    网络连接存储（打印机共享，文件共享）
+SAN    存储区域网络（块共享）
+
+如果有条件的情况下，要尽量送nfs共享（必须使用文件共享的前提），nfs的性能理论来说要高于windows的30%。
+nfs的本身不具备传输的能力，将由rpc模块来完成调用daemons实现传输目的。
+
+nfs的自身端口是tcp和dup的2049，rpc自身的端口是tcp和udp的111，客户端在连接nfs服务器时，rpc负责告诉客户端你要连接的端口是多少，这些端口是由rpc产生的随机产生的。
+[root@DNS ~]# rpcinfo -p  localhost
+查看当前rpc分配的端口号，因为是随机分配的，每次重启服务端口都会变化，这就给防火墙的策略配置带来了问题，我们需要人为的将rcp产生的端口绑定
+[root@DNS ~]# vim /etc/sysconfig/nfs 
+ 20 LOCKD_TCPPORT=6000
+ 22 LOCKD_UDPPORT=6000
+ 57 MOUNTD_PORT=6001
+[root@DNS ~]# iptables -I INPUT -p tcp --dport 111 -j ACCEPT
+[root@DNS ~]# iptables -I INPUT -p udp --dport 111 -j ACCEPT
+[root@DNS ~]# iptables -I INPUT -p tcp --dport 2049 -j ACCEPT
+[root@DNS ~]# iptables -I INPUT -p udp --dport 2049 -j ACCEPT
+[root@DNS ~]# iptables -I INPUT -p tcp --dport 6000 -j ACCEPT
+[root@DNS ~]# iptables -I INPUT -p udp --dport 6000 -j ACCEPT
+[root@DNS ~]# service iptables save
+[root@DNS /]# vim /etc/exports 
+这是设置共享的目录的配置文件
+[root@centos7 ~]# showmount -e 192.168.24.29
+查看remote机器上发布的共享信息
+[root@centos7 ~]# mount 192.168.24.29:/share /xx/
+将共享目录挂载到本地的xx目录下
+[root@DNS share]# cat /var/lib/nfs/etab   挂载成功后这个文件中会记录客户端对共享目录的默认权限
+/share	192.168.24.0/24(rw,sync,wdelay,hide,nocrossmnt,secure,root_squash,no_all_squash,no_subtree_check,secure_locks,acl,anonuid=65534,anongid=65534)
+
+参数说明：ro，rw，sync（立即写入硬盘）
+async--只写入缓存，不写入硬盘
+wdelay--如果多个用户要写入共享目录，就归组写入
+no_wdelay--如果多个用户要写入，立即sync
+hide--默认不共享子目录
+root_squash--root用户的请求会被映射成为匿名用户的权限
+
+[root@DNS share]# vim /etc/exports 
+/share   192.168.24.0/24(rw,sync,no_root_squash)
+设置root用户在共享中的写入保持root的名称和权限
+注：实际的生产环境中如果nfs服务做了修改，不建议重启服务，可以通过重新挂载实现
+[root@DNS ~]# exportfs -arv   使用重新挂载。a表示所有，r表示重新挂载，v表示显示结果
+[root@DNS share]# exportfs -au  卸载当前的共享
+
+rhel7中的nfs
+[root@centos7 /]# systemctl restart rpcbind
+
+2017/06/20  
+LDAP(Lightweight Directory Access Protocol)
+轻量目录访问协议  来自x.500
+tcp 389   636(TLS)
+通用的国际标准协议
+比NIS的性能更好，特别体现是在安全性方面，所以它被称为NIS终结者
+数据库 -- 目录型数据库   关系型数据库  非关系型数据库 
+目录也是用来浏览和查询的专业的分布式数据库，是一种树状结构（类似DNS的查询架构）
+目录型数据库和关系型数据库对比的话，关系型数据库要具有更好的写入性能。它仅仅具有可靠的读性能，适合于目录架构的查询，不利用对需要频繁修改数据的场合使用。
+
+什么样的数据才适合ldap（不需要频繁变更）
+企业的员工信息：电话、姓名、邮箱
+企业的架构信息：部门、车间
+企业的设备信息：服务器的名称、硬件的IP地址、存储的机房信息、购买的时间
+
+什么样的场景需要LDAP？
+假设有10个运维人员，需要维护1000台服务器
+10000个账号
+LDAP  将这个10个账号信息交给ldap
+可以结合NFS实现用户之间的漫游
+
+LDAP服务器的特点：
+LDAP使用树状架构查询，不需要sql语言
+LDAP可以查询快速，但不利于写入（慢）
+LDAP是静态查询
+				example.com
+			dc=example，dc=com
+		ou=origin，ou=people，ou=device
+	cn=admin，cn=sale    ou=IT，ou=makret    sn=print
+                       cn=baby，cn=tom
+
+LDAP术语：
+1、entry
+类似于数据库中的row，是记录的信息，也是ldap最基本的单位，对ldap的所有查询等操作都是以entry为单位的
+dn 每一个条目的唯一的标识
+例：dn "cn=tom,ou=it,out=people,dc=example,dc=com"
+rdn是dn条目中最高权限用户，通常就是条目中最左边的内容
+BASE DN:  dc=example,dc=com
+
+2、属性
+属性是对应的每个条目的具体的信息，比如电话，地址等等。一个条目可以有多个属性。
+cn    注释名称，一般就是人名或者设备名之类的
+ou    组织单位
+o     公司
+ob    内置属性
+内置属性的理解--例如：cn是名，sn是姓，电话tel，密码、邮编等等，条目可以继承类，类来自对象，继承类就是继续对象的属性。
+
+3、schema
+假设数据库是一个盘符，每个目录就是一个实体的数据库（schema），每个目录中包含的文件就是表，每张表都有拥有者，都对自身所在schema具有相应的操作权限。
+
+ldap工作的进程叫slapd
+LDIF 数据交换格式 ，是ldap数据库的信息专用的一种文件格式，每行都要属性和值
+
+TLS和SASL （ldap的认证）
+默认的ldap是用明文传输的。使用TLS为传输加密。
+SASL简单身份认证安全框架，这是一种工业标准，有kerberos v5、login、plain等等。kerberos是最复杂的一种。
+
+RHEL6配置LDAP
+[root@DNS ~]# cd /etc/openldap/slapd.d/
+删除这个目录下默认的配置
+[root@DNS openldap]# mv slapd.d/ slapd.d.bak
+重命名，防止启动时调用里面的配置文件
+[root@DNS openldap]# cp /usr/share/openldap-servers/slapd.conf.obsolete slapd.conf
+默认的配置文件不存在，拷贝模板
+[root@DNS openldap]# vim slapd.conf 
+改变下面几行内容
+114 database        bdb
+115 suffix          "dc=example,dc=com"
+116 checkpoint      1024 15
+117 rootdn          "cn=admin,dc=example,dc=com"
+设置密码，记录hash后的结果
+[root@DNS openldap]# slappasswd 
+New password: 
+Re-enter new password: 
+{SSHA}jZ4K/d/jLeEwBBJtZhwiwPm+j9KR8VHn
+将生成的hash密码加入配置文件
+123 rootpw       {SSHA}jZ4K/d/jLeEwBBJtZhwiwPm+j9KR8VHn
+修改访问控制，添加dn
+105 database monitor
+106 access to *
+107         by dn.exact="cn=admin,dc=example,dc=com" read
+108         by * none
+
+[root@DNS openldap]# slaptest -u -f slapd.conf 
+测试文件
+拷贝数据库的属性配置模板
+[root@DNS ldap]# cp /usr/share/openldap-servers/DB_CONFIG.example /var/lib/ldap/ 
+修改所有者和文件名
+[root@DNS ldap]# chown ldap:ldap DB_CONFIG.example 
+[root@DNS ldap]# mv DB_CONFIG.example DB_CONFIG
+[root@DNS ~]# service slapd restart   服务启动
+[root@DNS ~]# ldapsearch -x -b "dc=example,dc=com"
+检索域，-x是排序，-b是指定dn
+
+[root@DNS ~]# mkdir /netdir  创建一个用于网络用户登录的目录
+
+
+默认情况下ldap是无法识别/etc/passwd或者其他类型的文本内容的，只能读取ldif格式，所以我们需要对当前的格式进行转换。
+[root@DNS ~]# yum install migrationtools 
+安装ldap用户迁移工具，可以对普通格式进行ldif格式的转换。它提供了很多脚本供我们使用。
+[root@DNS ~]# cd /usr/share/migrationtools/
+脚本目录
+[root@DNS migrationtools]# vim migrate_common.ph 
+这个文件是所有脚本的配置变量的文件
+ 70 # Default DNS domain
+ 71 $DEFAULT_MAIL_DOMAIN = "example.com";
+ 72 
+ 73 # Default base 
+ 74 $DEFAULT_BASE = "dc=example,dc=com";
+[root@DNS migrationtools]# ./migrate_base.pl > /tmp/base.ldif   执行脚本生成一个基础的ldif文件
+[root@DNS migrationtools]# ./migrate_passwd.pl /etc/passwd > /tmp/passwd.ldif
+通过脚本将passwd文件转换为ldif格式，能够识别passwd和shadow
+[root@DNS migrationtools]# ./migrate_group.pl /etc/group > /tmp/group.ldif 
+生成一个基于组的ldif格式文件
+
+导入ldif文件到ldap数据库
+[root@DNS tmp]# ldapadd -x -D "cn=admin,dc=example,dc=com" -W -f group.ldif 
+[root@DNS tmp]# ldapadd -x -D "cn=admin,dc=example,dc=com" -W -f passwd.ldif 
+[root@DNS tmp]# ldapadd -x -D "cn=admin,dc=example,dc=com" -W -f base.ldif 
+
+rhel6的客户端通过setup工具选择使用ldap
+
+基于nfs的ldap（用户漫游）
+1、在ldap服务器上配置nfs共享
+2、客户端实现自动挂载
+[root@centos6 ~]# cp /etc/auto.misc /etc/auto.ldapdir
+在auto.ldapdir中配置自动挂载
+/netdir/ldapuser4    -fstype=nfs.rw  192.168.24.34:/netdir/ldapuser4
+[root@centos6 ~]# service autofs restart  重启自动挂载
+注：/netdir/*    -fstype=nfs,rw  192.168.24.34:/netdir/&    
+这里的*表示netdir的任意目录，最后的&就是引用前面的*
+或者说前面的*是什么，那么后面的&就是什么
+
+RHEL7中LDAP服务
+[root@centos7 ~]# yum install openldap-servers openldap-clients -y
+安装openldap
+
+[root@centos7 ~]# cp /usr/share/openldap-servers/DB_CONFIG.example /var/lib/ldap/DB_CONFIG
+拷贝数据库的模板
+
+[root@centos7 ldap]# chown ldap:ldap DB_CONFIG 
+修改所有者和所属组
+
+设置slapd服务的启动和自启动
+
+如果selinux开启，需要布尔值放行ldap认证等服务
+[root@centos7 ~]# setsebool -P authlogin_nsswitch_use_ldap=0
+
+[root@centos7 ~]# slappasswd   生成ldap密码，记录用于后面的配置
+{SSHA}gILpY3hR50691dMy/QyTfasy3eEKehpq
+
+[root@centos7 ~]# vim chrootpw.ldif   
+生成一个ldif的配置文件，这个文件用来记录管理员的信息
+  1 dn:olcDatabase={0}config,cn=config
+  2 changetype:modify
+  3 add:olcRootPW
+  4 olcRootPW:{SSHA}gILpY3hR50691dMy/QyTfasy3eEKehpq
+
+[root@centos7 ~]# ldapadd -Y EXTERNAL -H ldapi:/// -f chrootpw.ldif 
+参数-Y表示使用SASL机制进行外部认证，-H定义ldap服务器的url。-f是指定引用的ldif文件
+
+[root@centos7 ~]# vim chdomain.ldif 
+生成配置文件
+  1 dn:olcDatabase={1}monitor,cn=config
+  2 changetype:modify
+  3 replace:olcAccess
+  4 olcAccess:{0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=admin,dc=example,dc=com" read b
+    y * none
+  5 
+  6 dn:olcDatabase={2}hdb,cn=config
+  7 changetype:modify
+  8 replace:olcSuffix
+  9 olcSuffix:dc=example,dc=com
+ 10 
+ 11 dn:olcDatabase={2}hdb,cn=config
+ 12 changetype:modify
+ 13 replace:olcRootDN
+ 14 olcRootDN:cn=admin,dc=example,dc=com
+ 15 
+ 16 dn:olcDatabase={2}hdb,cn=config
+ 17 changetype:modify
+ 18 add:olcRootPW
+ 19 olcRootPW:{SSHA}gILpY3hR50691dMy/QyTfasy3eEKehpq
+ 20 
+ 21 dn:olcDatabase={2}hdb,cn=config
+ 22 changetype:modify
+ 23 add:olcAccess
+ 24 olcAccess:{0}to attrs=userPassword,shadowLastChange by dn="cn=admin,dc=example,dc=com" write by anonymous auth by self write by * none
+ 25 olcAccess:{1}to dn.base="" by * read
+ 26 olcAccess:{2}to * by dn="cn=admin,dc=example,dc=com" write by * read
+
+[root@centos7 ~]# ldapmodify -Y EXTERNAL -H ldapi:/// -f chdomain.ldif 导入数据库
+
+[root@centos7 ~]# vim basedomain.ldif 
+  1 dn:dc=example,dc=com
+  2 objectClass:top
+  3 objectClass:dcObject
+  4 objectClass:organization
+  5 o:example com
+  6 dc:example
+  7 
+  1 dn:dc=exmaple,dc=com
+  2 objectClass:top
+  3 objectClass:dcObject
+  4 objectClass:organization
+  5 o:example com
+  6 dc:example
+  7 
+  8 dn:cn=admin,dc=example,dc=com
+  9 objectClass:organizationalRole
+ 10 cn:admin                  
+ 11 description:Directory Manager
+ 12            
+ 13 dn:ou=People,dc=example,dc=com
+ 14 objectClass:organizationalUnit
+ 15 ou:People  
+[root@centos7 ~]# ldapadd -x -D cn=admin,dc=example,dc=com -W -f basedomain.ldif 
+导入数据库
+
+创建用户信息文件
+[root@centos7 ~]# vim ldapuser.ldif
+  1 dn:uid=ldapuser,ou=People,dc=example,dc=com
+  2 objectClass:inetOrgPerson
+  3 objectClass:posixAccount
+  4 objectClass:shadowAccount
+  5 cn:ldapuser
+  6 sn:Linux
+  7 userPassword:{SSHA}gILpY3hR50691dMy/QyTfasy3eEKehpq
+  8 loginShell:/bin/bash
+  9 uidNumber:2000                       
+ 10 gidNumber:2000
+ 11 homeDirectory:/home/ldapuser
+ 12 
+ 13 dn:cn=ldapuser,ou=Group,dc=example,dc=com
+ 14 objectClass:posixGroup
+ 15 cn:ldapuser
+ 16 gidNumber:2000
+ 17 memberUid:ldapuser
+
+客户端认证
+[root@rhel7 ~]# authconfig-tui   使用图形化工具认证
+[root@rhel7 ~]# authconfig-gtk   针对tls的ldap认证
+通过命令行执行认证，更适合脚本化操作 
+[root@rhel7 ~]# authconfig --enableldap \ 
+> --enableldapauth \
+> --ldapserver=ldap.example.com  \
+> --ldapbasedn="dc=example,dc=com"  \
+> --enablemkhomedir  \
+> --update 
+
+LDAP over TLS
+证书   认证
+自生成的证书是不被认证的，在浏览器上是会被拒绝的。
+大部分证书都是收费的，当然也有一些免费的证书，沃通就提供免费证书使用。比较有名的证书单位Verisign(威瑞信)，赛门铁克（Symantec）。
+509x规范是证书国际标准，证书通常包含二种编码，一种叫pem（文本格式，可读），一种叫der（二进制格式，不可读）。
+x509标准
+1、生成密钥
+生成的密钥都是key
+[root@centos7 ~]# cd /etc/pki/tls/certs/
+[root@centos7 certs]# make ldap.key
+
+2、生成证书请求文件
+后缀是csr都是证书请求文件，通过你的密钥向上级的证书颁发机构获取证书（你的公钥加上你的信息）
+[root@centos7 certs]# make ldap.csr 
+填写信息，在生产环境中应该注册合法的证书，所以填写的信息肯定是真实的
+
+3、生成证书
+证书文件后缀有可能是pem，默认都是crt
+[root@centos7 certs]# openssl x509 -in ldap.csr -out ldap.crt -req -signkey ldap.key -days 3650
+
+[root@centos7 certs]# cp -ap ldap.* /etc/openldap/certs/   复制所有文件到openldap目录
+
+[root@centos7 certs]# chown ldap:ldap ldap.*
+变更证书等文件为ldap
+
+[root@centos7 ~]# vim mod_ssl.ldif   编辑数据文件，主要是指明密钥和证书的路径
+
+[root@centos7 ~]# ldapmodify -Y EXTERNAL -H ldapi:/// -f mod_ssl.ldif 
+将编辑的文件导入ldap
+
+[root@centos7 ~]# vim /etc/sysconfig/slapd 
+  9 SLAPD_URLS="ldapi:/// ldap:/// ldaps:///"
+[root@centos7 ~]# systemctl restart slapd
+
+[root@centos7 html]# cp /etc/openldap/certs/ldap.crt .
+拷贝证书放到http服务器的主目录下
+
+[root@rhel7 ~]# echo "TLS_REQCERT allow" >> /etc/openldap/ldap.conf
+
+[root@rhel7 ~]# echo "tls_reqcert allow" >> /etc/nslcd.conf 
+
+http://www.ldap.org.cn   学习站点
+ldapamin   了解ldap的条目类型等
+
+2017/06/25  samba服务器
+samba被称为一个伟大的创造。它能够实在在类unix和win之间的共享，弥补了nfs的不足。samba支持建立域以及加入域。可以模拟称为ad域中的DC。
+[root@centos7 /]# yum install samba 
+安装
+
+samba服务器的daemons由nmbd和smbd来提供。其中nmbd是为比较古老的协议提供服务支持的，现在已经很少使用。
+[root@centos7 /]# firewall-cmd --add-service=samba --permanent   防火墙放行
+设置最简单的共享，允许匿名访问。
+     security = share
+ 37 [MOVIE]
+ 38         comment = This is a test share directory
+ 39         path = /share   
+ 40         writable = yes
+ 41         public = yes
+注：启动服务时会失败。这种方式只能在samba4.0版本以前使用。在4.0版本中增加了安全属性，不支持匿名登录。必须通过map to guest来实现
+  7         workgroup = WORKGROUP
+  8         security = user 
+  9         map to guest = Bad User
+ 10         passdb backend = tdbsam
+默认仍然无法写入，因为目录自身不具备其他用户可写的权限
+[root@centos7 samba]# chmod o+w /share/
+如果selinux开启，需要修改新建共享目录的上下文
+[root@centos7 share]# chcon -t samba_share_t /share/
+如果希望永久生效，使用semanage工具修改
+[root@centos7 ~]# yum install policycoreutils-python-2.5-9.el7.x86_64 
+[MOVIE]
+	comment = This is a test share directory
+	path = /share
+	writable = yes 
+#禁止匿名访问这个目录
+	public = no 
+#禁止显示共享目录
+	browseable = no
+
+根据不同的用户登录显示不同的内容
+重点是配置文件中的这个条目，可以手动添加
+ config  file = /etc/samba/smb.conf.%U
+[root@centos7 samba]# cp smb.conf smb.conf.tom 
+[root@centos7 samba]# cp smb.conf smb.conf.jarry
+linux 下客户端的验证
+[root@DNS ~]# smbclient -L //samba.example.com -U jarry
+
+[root@centos7 samba]# testparm   用来测试smb.conf的配置文件语法
+
+
+FTP服务器 
+ftp协议非常古老，设计之初没有考虑安全性，都是明文传输。rhel中使用的ftp工具叫vsftpd（very secrue ftp daemons ），特点就是安全。
+ftp是用来实现文件传输的。场景1：企业有数据共享给所有的员工，可以架设ftp服务器。
+场景2：idc一般提供的网站服务，客户端都需要通过ftp去上传和下载自己的网站数据。
+场景3：更新设备固件时会使用这种方式。
+
+FTP不支持UDP。
+[root@centos7 ~]# yum install vsftpd -y
+安装vsftpd
+
+[root@centos7 ~]# ss -ntulp |grep vsftpd
+查看vsftpd启动后监听的端口，是tcp的21.
+实际上，它监听2个端口，一个tcp的21，还有一个是tcp的20。
+默认情况下我们看不到20端口，那是因为这个端口是在客户端和服务器端的连接建立之后才产生的。21端口是用来传递信令的，20端口是用来传输数据的。
+
+FTP的两种工作方式：
+主动模式（POST）和被动模式（PASV）
+主动模式：  
+客户端发起N端口-->服务器的21端口
+服务器的20端口-->客户端的N+1端口
+这个模式的弊端是服务器在连接客户端的过程中，如果遇到防火墙，很难通过。
+
+被动模式：
+客户端发起N端口-->服务器的21端口
+客户端的N+1端口-->服务器的P端口(随机高端口)
+这种模式就解决了主动模式下客户端的防火墙可能引起的问题，但对于服务器端的防火墙也需要进行额外的设置
+
+不论哪种模式，选择权都在客户端。winxp默认使用的就是主动模式。通常优先选择都是被动模式。
+
+[root@centos7 ~]# systemctl enable vsftpd
+[root@centos7 ~]# vim /etc/vsftpd/vsftpd.conf 
+
+默认情况下vsftpd 的主目录是/var/ftp/pub
+注：selinux开启的情况下，需要把下面的布尔值都打开才可以实现匿名写入，同时还要保证写入的目录有相应的权限
+ftpd_anon_write --> off
+ftpd_full_access --> off
+
+2017/06/28 openvpn
+openvpn是一个基于openssl库来实现的vpn开源工具。和pptp等vpn相比，它的特点安全。它也是我们在生产环境中所有最多vpn方案。
+工作原理：产生一块抽象的虚拟网卡，当需要交流时，数据包或者数据帧发送给虚拟网卡，虚拟网卡对数据按照事先双方协商的加密或者hmac等算法进行处理，从物理网卡发出。
+
+[root@RB ~]# yum install openssl openssl-devel -y
+openssl是用来实现openvpn加密的，需要安装。
+heartbleed漏洞，检查一下openssl是否有这个漏洞
+[root@RB ~]# openssl version  检查版本
+[root@RB ~]# yum install lzo
+lzo工具用来实现快速的压缩和解压缩，它提供的是一种加速的无损解压缩算法，可以在openvpn数据传输过程中提升性能
+[root@RB ~]# yum install openvpn easy-rsa
+通过安装epel源安装openvpn和easy-rsa（提供rsa的算法）
+
+1、生成openvpn的证书密钥
+[root@RB ~]# vim /usr/share/easy-rsa/2.0/vars 
+设置环境变量
+[root@RB ~]# cd /usr/share/easy-rsa/2.0/
+[root@RB 2.0]# ./build-ca   生成证书
+[root@RB 2.0]# ./build-key-server server
+为服务器生成证书还有请求文件和私钥文件。server是服务器默认的名字，如果设置了其他名称，最后必须将证书和密钥修改为统一的名称。
+[root@RB 2.0]# ./build-key client   生成客户端的证书、证书请求文件以及私钥，如果在生产环境中就需要为每个客户生产各自的文件
+[root@RB 2.0]# ./build-dh  使用dh算法实现密钥交换，主要是为了增强openvpn传输的安全性
+[root@RB keys]# openvpn --genkey --secret keys/ta.key
+可以在生产环境中阻止ddos等恶意攻击的密钥
+[root@RB sample-config-files]# pwd
+/usr/share/doc/openvpn-2.4.3/sample/sample-config-files
+[root@RB sample-config-files]# cp server.conf  /etc/openvpn/
+拷贝openvpn的配置模板到配置目录下
+
+[root@RB 2.0]# iptables -I FORWARD  -p all --dest 192.168.24.0/24 -j ACCEPT
+
+[root@RB 2.0]# iptables -I INPUT   -p tcp --dport 1194 -j ACCEPT
+
+
+2017/06/29  SVN
+SVN 是 subversion  的简称，是一个开源的版本控制的系统。相较于rcs、cvs等其他的版本控制系统，提供了更强大的功能，支持更多的特性。
+
+常见的版本控制软件：cvs svn github
+svn能够很好的识别到冲突，并处理
+支持并行开发（分支的合并）
+支持本地离线操作
+场景：主要部署在企业内部，作为git的替代。敏感代码存储在svn上，其他的可以根据需要存放到git上。
+
+svn部署的两种方式：
+作为服务器单独运行（C/S架构）  3690
+作为服务器结合一些模块（http） 借助于apache运行   80
+[root@DNS ~]# yum install subversion -y  安装
+[root@DNS ~]# yum install httpd\* -y  
+[root@DNS ~]# yum install mod_dav_svn -y   如果需要使用http访问svn，需要安装这个模块连接svn和apache
+[root@DNS ~]# useradd  svn 
+建立一个专门用来管理仓库的用户
+[root@DNS ~]# mkdir /var/repos  建立一个仓库目录
+[root@DNS ~]# chown svn.svn /var/repos/
+[root@DNS ~]# svnadmin create /var/repos/svn1
+使用svn工具创建版本仓库
+[root@DNS conf]# ls   成功后会在仓库目录中生成svn的元数据文件
+authz 权限和认证
+passwd   用户和密码 
+svnserve.conf   服务器的配置
+[root@DNS conf]# svnserve -d -r /var/repos/ 
+svn的启动必须通过管理库的目录来执行，参数-d表示svn的daemons会在后台执行，-r指定了仓库的根目录
+[root@DNS conf]# vim /etc/rc.local   设置svn服务开机自动运行，添加如下指令到rc.local
+/usr/bin/svnserver -d -r /var/repos/
+
+[root@DNS ~]# svn import figlet/ file:///var/repos/svn1 -m 'svn1 version1'
+将一个软件包figlet提交到本地的仓库svn1下，并添加注释信息。
+注：我们默认使用的是fsfs存储方式（基本上取代了bdb这种数据库存储的方式）。当文件被上传后，会以一堆数字来表示，都被压缩成了二进制文件。fsfs格式是以增量的方式来记录和存放数据的。svn先把0压缩成一个文件，然后每次版本更新时就对变化的部分进行压缩，生成一个新的数字文件，每次都是增加一个增量包，这个包中包含的就是这次提交所有的commit的数据。
+[root@DNS ~]# svn checkout file:///var/repos/svn1/ 
+将代码下载到本地
+
+注：实际的生产环境中更多是使用http结合svn的方式
+[root@DNS ~]# rpm -ql mod_dav_svn   查看模块安装后生成的文件
+/etc/httpd/conf.d/subversion.conf  配置文件
+/usr/lib64/httpd/modules/mod_authz_svn.so   认证模块
+/usr/lib64/httpd/modules/mod_dav_svn.so  连接httpd模块
+配置apache支持svn
+[root@DNS ~]# vim /etc/httpd/conf/httpd.conf
+#修改默认的httpd的用户和组都为svn
+ 250 User svn
+ 251 Group svn
+[root@DNS html]# vim /etc/httpd/conf.d/subversion.conf 
+配置svn结合apahce的配置文件
+<Location /svn>
+   DAV svn
+   SVNParentPath /var/repos
+      AuthType Basic    要求提供基本认证
+      AuthName "Authorization REPOS"    弹窗的信息
+      AuthUserFile /home/svn/passwd   用户的密码文件路径
+      AuthzSVNAccessFile /home/svn/authz   权限文件
+      Require valid-user    需要有效用户才能认证
+</Location>
+
+[root@DNS ~]# htpasswd -cm /home/svn/passwd tom  创建一个本地访问控制文件，后面通过http访问svn时，使用证号密码。账号密码就来自于这个文件
+[root@DNS ~]# vim /home/svn/authz   配置认证文件
+[/]        仓库根目录权限
+tom = rw
+[svn1:/]     针对svn1仓库的根目录
+@group = rw   针对group这个组
+jarry = rw
+[svn2:/]
+@admin = rw
+jarry = r
+[groups]
+group = tom,jarry
+admin = tom
+
+2017/06/30  ISCSI
+[root@centos7 ~]# yum install target\* -y
+安装target，这个是iscsi的服务端工具
+[root@centos7 ~]#  targetcli  通过工具交互式配置iscsi目标
+1、在blockstore中创建一个iscis的物理设备
+/backstores/block> create iscsi.disk1 /dev/sdb1
+/backstores/fileio> create iscsi.disk2 /iscsi/fileio 
+
+2、指定iscsi的目标名称
+/iscsi> create iqn.2017-06.com.example:iscsi.disk
+
+3、指定目标的acls
+/iscsi/iqn.20...isk/tpg1/acls> create iqn.2017-06.com.example:iscsi.disk-201707020915
+
+4、将目标设备和iscsi的名称映射
+/iscsi/iqn.20...isk/tpg1/luns> create /backstores/block/iscsi.disk1     映射磁盘
+/iscsi/iqn.20...isk/tpg1/luns> create /backstores/fileio/iscsi.disk2    映射了文件io
+
+5、指定监听的设备地址和端口
+/iscsi/iqn.20.../tpg1/portals> delete 0.0.0.0 3260
+删除默认的监听所有，不删除，后面创建会冲突
+/iscsi/iqn.20.../tpg1/portals> create 192.168.24.4
+
+[root@centos7 ~]# systemctl restart target
+[root@centos7 ~]# systemctl enable target
+[root@centos7 ~]# firewall-cmd --add-port=3260/tcp
+success
+[root@centos7 ~]# firewall-cmd --add-port=3260/tcp --permanent
+
+[root@DNS ~]# vim /etc/iscsi/initiatorname.iscsi 
+客户端直接在这个文件中记录服务器的iscsi的acls名称，就可以登录
+
+2017/07/02  POSTFIX  DOVECOT
+
+企业邮箱可以提升企业的形象，加强企业内部的邮件往来安全和隐私性等。但是如果使用的是由服务商提供的企业邮箱，费用一般都较为高昂。
+腾讯邮箱   750元一年  5个用户
+root@unix.cn.com --- mx --腾讯的邮箱 
+rhel6以前默认使用的都是sendmail作为电子邮箱的daemons，sendmail设计的比较早，在运行时都是使用的root身份，安全隐患很大。
+POSTFIX是6以后红帽默认使用的邮件工具，理论上不需要安装。它是IBM开发的开源工具。postfix除了对sendmail有很好的兼容性以外，在安全性和自身的性能上都是远远好于sendmail的。
+
+客户端  ---  本地邮局   ---  其他邮局  ---  接收方
+需要通过DNS对email的域名做解析。查找的MX记录
+电子邮件格式：username@domainname.com
+
+邮箱技术术语：
+MUA  邮件用户代理    foxmail或者闪电邮或者outlook
+邮件的收发是使用不同的协议来完成的。
+
+发送邮件协议smtp（简单邮件传输协议），它控制了信件从源到目的的发送或者中转  smtp使用tcp协议，端口是25
+
+接收邮件协议POP3（邮政办公协议第三版post office protocol）、IMAP（网络邮件访问协议）
+pop3规定了个人计算机如何连接到互联网上的邮件服务器进行邮件接收。端口是110
+IMAP也是用来获取邮件接收的，使用tcp协议，端口是143。它和pop3的区别是不需要把邮件下载到本地就可以直接操作。其实就是可以通过MUA软件对服务器上的邮件直接进行处理。
+
+邮件投递MDA
+邮件代理接收 MRA
+邮件中转 relay
+邮件传输代理 MTA    POSTFIX exchange（微软）
+ 
+rhel7中邮件服务器的配置
+[root@centos7 ~]# yum install postfix   默认不需要安装
+[root@centos7 ~]# systemctl enable postfix  开机启动
+[root@centos7 ~]# cd /etc/postfix/  配置目录
+postfix是模块化设计的。sendmail只有一个daemons，而postfix会把所有的工作分配给不同的daemons去完成。master.cf是协调各个模块工作的。main.cf是主要的配置文件
+
+[root@centos7 postfix]# ss -ntulp |grep :25 
+默认情况下只针对自己进行监听
+[root@centos7 ~]# vim /etc/postfix/main.cf
+113 inet_interfaces = all   
+
+1、修改邮件服务器的名称
+[root@centos7 ~]# hostname  修改主机名称
+mail.example.com
+[root@centos7 ~]# vim /etc/postfix/main.cf
+77 myhostname = mail.example.com
+
+2、修改邮局的域名
+84 mydomain = example.com
+
+3、修改寄出邮件的域
+99 myorigin = $mydomain
+
+4、指定收信人的邮件格式
+164 #mydestination = $myhostname, localhost.$mydomain, localhost  如果是这种格式，邮件地址可以是root@mail.example.com，这种格式用户是接收不到的。
+165 mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+
+postfix中的队列由专门的模块qmgr实现。它是整个postfix 的核心。队列的管理设置输入、活动、等待、故障、保留，每个队列都会在/var/spool/postfix下生成一个目录，里面就是各自队列的文件。比如如果邮件发送失败，那么在故障目录中就会生成一个队列文件，我们通过postqueue可以查看队列。
+[root@centos7 postfix]#yum install mailx 安装一个mua工具
+[root@centos7 postfix]# echo xxxx | mail -s "test" xx@x.example.com  模拟发送一个不存在的邮局
+[root@centos7 postfix]# postqueue -p  查看队列
+[root@centos7 postfix]# postsuper -d 5EC61409DB86  删除队列
+
+邮件接收由dovecot完成。这个是linux里面使用的用来接收邮件的开源工具，它的特点是配置简单，功能强大，效果高，性能好，不占用过多资源。
+[root@centos7 postfix]# yum install dovecot -y
+安装dovecot邮件接收
+[root@centos7 ~]# vim /etc/dovecot/dovecot.conf 
+ 24 protocols = imap pop3 lmtp    选择支持所有的邮局接收协议
+另外在目录/etc/dovecot/conf.d/10-auth.conf和10-mail.conf中修改配置
+
+设置防火墙：
+25 smtp协议使用  发送邮件
+109  pop2协议使用  接收邮件（这个协议版本目前已经不使用）
+110  pop3协议使用   接收邮件
+143  IAMP协议使用   接收邮件
+465端口  smtps （smtp over tls）
+995端口  pop3s
+993端口  iamps
+
+[root@centos7 ~]# yum install postgrey 
+这个是第三方的邮件过滤
+
+2017/07/02  服务器的虚拟化技术
+服务器虚拟化
+桌面虚拟化  cirtix（思杰）  vmware 
+应用虚拟化  vmware
+存储虚拟化  vsan   vmware
+网络虚拟化  SDN
+数据中心虚拟化  
+
+常用的虚拟化软件：
+vmware workstations
+xen
+virtual box
+vpc
+kvm
+
+全虚拟化
+半虚拟化   ring3  ring0     xen  kvm
+基于硬件的全虚拟化
+
+随着计算机性能的大幅度提升，实际的应用中cpu的利用率使用并不高，对于企业而言，这就是资源的浪费。服务器的虚拟化是目前企业或者其他机构中一定会考虑的实施部署方案。
+
+服务器虚拟化中一般都会结合一系列的管理功能，比如HA（高可用）、LB（负载均衡）、DRS
+使用率比较高的服务器虚拟化方案有：
+vmware vsphere   （vmware）  商用版本  简单 功能齐全 
+rhev  （红帽）  kvm    开源的方案
+hyper-v （微软）
+cirtix   （思杰）  xen
+
+kvm  kernel-base virtual machine（基于内核的虚拟机）
+
+cpu的指令有4个级别：ring0 ring1 ring2 ring3
+
+ring0的级别最高，通常都是执行内核空间指令。ring3的级别最低，通常都是执行用户空间的指令。ring0指令通常都是控制中断、修改页表、访问硬件设备等，叫特权指令。应用程序所使用的指令都是由ring3来执行了。如果某个程序需要将数据存储到磁盘中，这时指令会从ring3到ring0进行转换和变化。
+
+用户空间的指令不能执行内核空间的指令，也就代表着如果vmware workstations中的虚拟机要发出一个关机的指令，意味着要中断系统硬件的运行，这个是特权指令。为了解决这个问题，vmware在1998年开发了一个技术叫BT（二进制特权转换）。
+
+通过BT实现的虚拟化我们叫半虚拟化，如果要实现半虚拟化，就需要修改系统的内核来实现指令翻译。对此，windows是不可能实现的，也就是说半虚拟化只针对开源的操作系统。
+半虚拟化软件：xen  在2012年左右已经开源，现在应该属于cirtix公司。
+性能非常好，接近裸机，但是只能用于linux系统
+
+intel公司推出了cpu的虚拟化，直接通过硬件实现了虚拟化功能。基于硬件的全虚拟化开始流行，性能是最好的。
+
+目前  腾讯做的是kvm
+      淘宝也在部署kvm
+	  百度云部署xen
+	  淘宝也有许多xen
+
+kvm需要搭载qemu来实现管理，现在也有使用libvirt（virsh）来实现
+[root@DNS ~]# yum insatll "虚拟化*" -y
+[root@DNS ~]# service libvirtd restart 启动kvm的管理daemons
+
+kvm快照：
+virsh # snapshot-create CentOS6
+kvm的快照不支持默认的磁盘格式RAW。
+[root@DNS ~]# qemu-img info /var/lib/libvirt/images/CentOS6.img 
+
+虚拟机支持的磁盘格式有vmdk（vmware）、vdi（virtualbox）、RAW（kvm）、cow和qcow2（可以快照）
+qcow2格式性能不如raw，但是功能比较多，支持压缩、快照、加密等等。
+[root@DNS ~]# qemu-img convert -f raw -O qcow2 /var/lib/libvirt/images/CentOS6.img /var/lib/libvirt/images/CentOS6.qcow2
+将当前磁盘类型转换为qcow2类型
+
+建议：在虚拟化前就创建虚拟磁盘
+[root@mail ~]# qemu-img create -f qcow2 c6.qcow2 8G
+
+通过命令行安装
+virt-install -n centos6 -r 512 -f /var/lib/libvirt/images/CentOS6.img -b br0 -l /dev/cdrom -x "console=tty0 console=ttyS0 115200ng" --nographics 
+
+docker(容器)
+lxc  namespace cgroup  chroot  
+用户空间     进程隔离
+资源组管理   资源隔离
+chroot       用户隔离
+注：docker实现的隔离还是有限的，从实际情况上来看，肯定么有虚拟化来的彻底
+在同一台服务器上的所有的容器共用底层的内核（linux）
+
+和虚拟机相比：启动毫秒级别，安全性上不如虚拟机。
+
+[root@mail ~]# yum install docker-io -y
+docker仓库
+docker镜像
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
+   
+   
+   
+   
+   
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
